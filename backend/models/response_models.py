@@ -4,6 +4,8 @@ from typing import List, Optional, Union, Literal
 from uuid import uuid4
 from pydantic import BaseModel, Field, UUID4
 
+from models.request_models import AppIntent
+
 
 # =========================================================
 # ENUMS
@@ -211,3 +213,12 @@ class UserState(BaseModel):
 class GetChatDetailsResponse(BaseModel):
     page_urls: List[str] = Field(default_factory=list)
     chat_session_states: List[ChatSessionState]
+
+
+class ChatResponseType(str, Enum):
+    APP_INTENT = "app_intent"
+    UI_RESPONSE = "UI_response"
+
+class ChatResponse(BaseModel):
+    response_type: ChatResponseType
+    response: Union[UIBase, AppIntent]

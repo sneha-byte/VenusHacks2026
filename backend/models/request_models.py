@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import List, Union
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, Field
 from models.response_models import FormFieldType, UIResponse, UserState
 
 
@@ -8,12 +8,7 @@ from models.response_models import FormFieldType, UIResponse, UserState
 class UserQuery(BaseModel):
     # Raw natural-language request typed or spoken by the user.
     query: str
-
-
-# request body for POST /chat, includes the user's query and active browser/chat session
-class AgentChatRequest(UserQuery):
-    # Browser/chat session that should handle this query.
-    sessionId: UUID4
+    session_id: UUID4
 
 
 # High Level user Intent Domain such as open settings click renew 
@@ -32,7 +27,7 @@ class InvalidIntent(BaseModel):
 # app intent types such as switch tab, open settings, minimize browser
 class AppIntentTypes(str, Enum):
     # Actions that affect our app shell instead of the website inside the browser.
-    SWITCH_TAB = "switch_tab"
+    SWITCH_TAB = "switch_conversation_tab"
     DELETE_CONVERSATION = "delete_conversation"
     CREATE_CONVERSATION = "create_conversation"
     FULL_SCREEN = "full_screen_browser"
@@ -44,7 +39,7 @@ class AppIntent(BaseModel):
     # App command the session/app layer should execute.
     type: AppIntentTypes
     # Target id for commands that operate on a specific session or UI object.
-    id: UUID4
+    id: UUID4 | None = None
 
 #browser intent types such as click, type, select, submit, search, scroll, navigate
 class WebsiteIntent(str, Enum):
@@ -62,7 +57,7 @@ class WebsiteIntent(str, Enum):
 # user intent when they want to update a form field value, such as change date to 12/12/2024, or change slider value to 5
 class FormUpdateIntent(BaseModel):
     # Id of the simplified form the user wants to change.
-    form_reference_id: UUID4
+    form_reference_id: UUID4 = Field
     # Field types involved in the update. The natural-language query still carries the exact new value.
     form_field_new_value: List[FormFieldType]
 
@@ -93,3 +88,5 @@ class UpdateSessionStateRequest(BaseModel):
     session_id: UUID4
     # New simplified UI block to store and render.
     new_ui_state: UIResponse
+
+
