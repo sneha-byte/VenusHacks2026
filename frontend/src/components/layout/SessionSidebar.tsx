@@ -18,7 +18,7 @@ export function SessionSidebar({ width, onNewChat }: Props) {
   const handleDelete = (id: string, title: string) => {
     const label = title || 'this chat'
     if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return
-    deleteSession(id)
+    void deleteSession(id)
     if (editingId === id) setEditingId(null)
   }
 

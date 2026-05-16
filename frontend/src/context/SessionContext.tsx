@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -13,10 +14,19 @@ import type {
   SandboxSession,
   SimplifiedUiState,
 } from '../types'
+import {
+  checkBackendHealth,
+  createMessageSession,
+  createUserSession,
+  deleteMessageSession,
+  getUserSession,
+  listMessageSessions,
+} from '../api/sessionClient'
 import { sendBrowserEvent, sendChatQuery } from '../api/client'
 
 const SESSIONS_KEY = 'easyweb-sessions-v2'
 const ACTIVE_KEY = 'easyweb-active-session'
+const USER_SESSION_KEY = 'easyweb-user-session-id'
 
 const emptySandbox = (): SandboxSession => ({
   paused: false,
@@ -33,9 +43,9 @@ function welcomeMessage(): ChatMessage {
   }
 }
 
-export function createEmptyChatSession(): ChatSession {
+export function createEmptyChatSession(id?: string): ChatSession {
   return {
-    id: crypto.randomUUID(),
+    id: id ?? crypto.randomUUID(),
     title: 'New chat',
     messages: [welcomeMessage()],
     simplifiedUi: null,
@@ -70,9 +80,13 @@ function persist(sessions: ChatSession[], activeId: string | null) {
   else localStorage.removeItem(ACTIVE_KEY)
 }
 
+export type SessionApiStatus = 'idle' | 'connecting' | 'connected' | 'offline' | 'error'
+
 type SessionContextValue = {
   sessions: ChatSession[]
   activeSessionId: string | null
+  userSessionId: string | null
+  apiStatus: SessionApiStatus
   messages: ChatMessage[]
   simplifiedUi: SimplifiedUiState | null
   sandbox: SandboxSession
@@ -80,9 +94,9 @@ type SessionContextValue = {
   isAgentBusy: boolean
   activeFieldId: string | null
   setActiveFieldId: (id: string | null) => void
-  createSession: () => string
+  createSession: () => Promise<string>
   selectSession: (id: string) => void
-  deleteSession: (id: string) => void
+  deleteSession: (id: string) => Promise<void>
   renameSession: (id: string, title: string) => void
   sendMessage: (text: string) => Promise<void>
   updateFieldValue: (fieldId: string, value: string) => void
@@ -92,6 +106,7 @@ type SessionContextValue = {
   setSandboxMinimized: (minimized: boolean) => void
   refreshSandbox: () => void
   confirmSubmit: () => void
+  syncWithBackend: () => Promise<void>
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -101,6 +116,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() =>
     loadActiveId(loadSessions()),
   )
+  const [userSessionId, setUserSessionId] = useState<string | null>(() =>
+    localStorage.getItem(USER_SESSION_KEY),
+  )
+  const [apiStatus, setApiStatus] = useState<SessionApiStatus>('idle')
   const [isAgentBusy, setIsAgentBusy] = useState(false)
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null)
   const [, setFieldHistory] = useState<Record<string, string>[]>([])
@@ -109,6 +128,55 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => sessions.find((s) => s.id === activeSessionId) ?? null,
     [sessions, activeSessionId],
   )
+
+  const ensureUserSession = useCallback(async (): Promise<string> => {
+    const stored = localStorage.getItem(USER_SESSION_KEY)
+    if (stored) {
+      try {
+        await getUserSession(stored)
+        setUserSessionId(stored)
+        return stored
+      } catch {
+        localStorage.removeItem(USER_SESSION_KEY)
+      }
+    }
+    const user = await createUserSession()
+    localStorage.setItem(USER_SESSION_KEY, user.id)
+    setUserSessionId(user.id)
+    return user.id
+  }, [])
+
+  const syncWithBackend = useCallback(async () => {
+    setApiStatus('connecting')
+    const healthy = await checkBackendHealth()
+    if (!healthy) {
+      setApiStatus('offline')
+      return
+    }
+
+    try {
+      const uid = await ensureUserSession()
+      const chatIds = await listMessageSessions(uid)
+      setSessions((prev) => {
+        const byId = new Map(prev.map((s) => [s.id, s]))
+        const merged: ChatSession[] = chatIds.map(
+          (id) => byId.get(id) ?? createEmptyChatSession(id),
+        )
+        const next = merged.length > 0 ? merged : prev
+        const nextActive = loadActiveId(next) ?? next[0]?.id ?? null
+        setActiveSessionId(nextActive)
+        persist(next, nextActive)
+        return next
+      })
+      setApiStatus('connected')
+    } catch {
+      setApiStatus('error')
+    }
+  }, [ensureUserSession])
+
+  useEffect(() => {
+    void syncWithBackend()
+  }, [syncWithBackend])
 
   const updateActiveSession = useCallback(
     (updater: (session: ChatSession) => ChatSession) => {
@@ -124,7 +192,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [activeSessionId],
   )
 
-  const createSession = useCallback(() => {
+  const createSession = useCallback(async () => {
+    const healthy = await checkBackendHealth()
+    if (healthy) {
+      try {
+        const uid = userSessionId ?? (await ensureUserSession())
+        setUserSessionId(uid)
+        const created = await createMessageSession(uid)
+        const session = createEmptyChatSession(String(created.id))
+        setSessions((prev) => {
+          const next = [session, ...prev]
+          persist(next, session.id)
+          return next
+        })
+        setActiveSessionId(session.id)
+        setActiveFieldId(null)
+        setApiStatus('connected')
+        return session.id
+      } catch {
+        setApiStatus('error')
+      }
+    } else {
+      setApiStatus('offline')
+    }
+
     const session = createEmptyChatSession()
     setSessions((prev) => {
       const next = [session, ...prev]
@@ -134,7 +225,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setActiveSessionId(session.id)
     setActiveFieldId(null)
     return session.id
-  }, [])
+  }, [userSessionId, ensureUserSession])
 
   const selectSession = useCallback((id: string) => {
     setActiveSessionId(id)
@@ -143,7 +234,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const deleteSession = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      if (await checkBackendHealth()) {
+        try {
+          const uid = userSessionId ?? (await ensureUserSession())
+          await deleteMessageSession(uid, id)
+          setApiStatus('connected')
+        } catch {
+          setApiStatus('error')
+        }
+      }
+
       setSessions((prev) => {
         const next = prev.filter((s) => s.id !== id)
         const nextActive =
@@ -154,7 +255,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return next
       })
     },
-    [activeSessionId],
+    [activeSessionId, userSessionId, ensureUserSession],
   )
 
   const renameSession = useCallback(
@@ -223,7 +324,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           id: crypto.randomUUID(),
           role: 'assistant',
           content:
-            'I could not reach the server. Start your backend, or check VITE_API_URL in .env.',
+            apiStatus === 'connected'
+              ? 'Chat API is not available yet (/chat). Session API is connected — try New chat to test backend sessions.'
+              : 'I could not reach the server. Start your backend and Redis, or check VITE_API_URL in .env.',
           timestamp: Date.now(),
         }
         updateActiveSession((s) => ({
@@ -234,7 +337,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsAgentBusy(false)
       }
     },
-    [activeSessionId, updateActiveSession],
+    [activeSessionId, updateActiveSession, apiStatus],
   )
 
   const updateFieldValue = useCallback(
@@ -303,6 +406,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => ({
       sessions,
       activeSessionId,
+      userSessionId,
+      apiStatus,
       messages: activeSession?.messages ?? [],
       simplifiedUi: activeSession?.simplifiedUi ?? null,
       sandbox: activeSession?.sandbox ?? emptySandbox(),
@@ -318,6 +423,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       updateFieldValue,
       goToStep,
       undoLastChange,
+      syncWithBackend,
       setSandboxPaused: (paused: boolean) =>
         updateActiveSession((s) => ({
           ...s,
@@ -340,6 +446,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [
       sessions,
       activeSessionId,
+      userSessionId,
+      apiStatus,
       activeSession,
       isAgentBusy,
       activeFieldId,
@@ -352,6 +460,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       goToStep,
       undoLastChange,
       updateActiveSession,
+      syncWithBackend,
     ],
   )
 
