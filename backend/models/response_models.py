@@ -179,6 +179,7 @@ class AccessibilityOptions(BaseModel):
 # The state of a user
 class UserState(BaseModel):
     id: UUID4 = Field(default_factory=uuid4)
-
+    onboarded: bool = False
     chat_sessions: List[ChatSessionState] = []
+    accessibility_options: AccessibilityOptions
 

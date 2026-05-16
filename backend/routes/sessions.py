@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from fastapi.websockets import WebSocket
 
+from models.request_models import UpdateSessionStateRequest, UpdateUserStateRequest
 from models.response_models import UserState, ChatSessionState
 
 session_router = APIRouter(prefix="/session", tags=["Sessions"])
@@ -16,8 +17,12 @@ async def get_session() -> ChatSessionState:
 	return {"session_id": "12345"}
 
 
+@session_router.post("/update_user_state")
+async def update_user_state(request: UpdateUserStateRequest):
+	...
+
 @session_router.post("/update_session")
-async def update_session():
+async def update_session(request: UpdateSessionStateRequest):
 	...
 
 

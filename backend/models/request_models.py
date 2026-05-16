@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Union
 from pydantic import BaseModel, UUID4
-from response_models import FormFieldType
+from response_models import FormFieldType, UserState, UIBase
 
 
 # =========================
@@ -74,3 +74,14 @@ class UserSubmitForm(BaseModel):
 class ParsedIntent(BaseModel):
     domain: IntentDomain
     intent: Union[AppIntent, WebsiteIntent, UserUpdateIntent]
+
+
+# Session requests
+class UpdateUserStateRequest(BaseModel):
+    session_id: UUID4
+    new_user_state: UserState
+
+
+class UpdateSessionStateRequest(BaseModel):
+    session_id: UUID4
+    new_ui_state: UIBase
