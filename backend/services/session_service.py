@@ -60,21 +60,32 @@ class SessionService:
         return session_id
 
     async def expire_session(self, session_id: UUID4) -> None:
-        if session_id not in self._agents:
-            raise ValueError(f"Session {session_id} not found.")
-        agent = self._agents[session_id]
-        await agent.close()
-
-        self._agents.pop(session_id)
+        agent = self._agents.pop(session_id, None)
         context = self._contexts.pop(session_id, None)
+        if agent is not None:
+            try:
+                await agent.close()
+            except Exception:
+                pass  # best effort
         if context is not None:
             await context.close()
 
+    async def create_session_view(self, session_id: UUID4) -> dict:
+        agent = self._agents.get(session_id)
+        context = self._contexts.get(session_id)
+        if agent is None or context is None:
+            raise KeyError(f"Unknown session: {session_id}")
+        page = context.pages[0] if context.pages else None
+        return {
+            "session_id": str(session_id),
+            "url": page.url if page else None,
+            "title": await page.title() if page else None,
+        }
 
-    def create_session_view(self):
-        ...
-
-    def process_user_input(self):
-        ...
-
-session_service = SessionService()
+    async def process_user_input(self, session_id: UUID4, user_input: str) -> dict:
+        agent = self._agents.get(session_id)
+        if agent is None:
+            raise KeyError(f"Unknown session: {session_id}")
+        agent.task = user_input
+        result = await agent.run()
+        return {"result": str(result)}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAccessibility } from '../context/AccessibilityContext'
 import { useSession } from '../context/SessionContext'
+import { EasyWebLogo } from '../components/brand/EasyWebLogo'
 import styles from './OnboardingPage.module.css'
 
 const NEED_OPTIONS = [
@@ -20,6 +21,24 @@ const QUICK_TOGGLES = [
   { key: 'stepByStep' as const, label: 'Step-by-step mode' },
   { key: 'readAloud' as const, label: 'Read aloud' },
   { key: 'voiceOnly' as const, label: 'Prefer voice control' },
+]
+
+const FEATURES = [
+  {
+    title: 'Simpler forms',
+    desc: 'Confusing pages become clear, step-by-step fields you can actually finish.',
+    icon: '📋',
+  },
+  {
+    title: 'Live preview',
+    desc: 'Watch the real website fill in while you chat — nothing happens in secret.',
+    icon: '👁',
+  },
+  {
+    title: 'Built for you',
+    desc: 'Voice, large text, dyslexia font, and calm layouts you control anytime.',
+    icon: '♿',
+  },
 ]
 
 export function OnboardingPage() {
@@ -46,68 +65,130 @@ export function OnboardingPage() {
     navigate('/app')
   }
 
+  const scrollToSetup = () => {
+    document.getElementById('setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
-    <div className={styles.page}>
-      <main className={styles.card}>
-        <header className={styles.hero}>
-          <h1>Welcome to EasyWeb</h1>
-          <p>
-            We simplify confusing websites so you can complete forms and tasks with less stress.
-            Choose what helps you most — you can change these anytime.
+    <div className={styles.site}>
+      <header className={styles.nav}>
+        <EasyWebLogo size={40} showWordmark variant="light" />
+        <nav className={styles.navLinks} aria-label="Page sections">
+          <button type="button" className={styles.navLink} onClick={scrollToSetup}>
+            Personalize
+          </button>
+          <button type="button" className={styles.navCta} onClick={finish}>
+            Get started
+          </button>
+        </nav>
+      </header>
+
+      <section className={styles.hero}>
+        <div className={styles.heroInner}>
+          <EasyWebLogo size={72} />
+          <p className={styles.eyebrow}>Accessible web assistant</p>
+          <h1 className={styles.heroTitle}>
+            Finish forms online
+            <span className={styles.heroAccent}> without the stress</span>
+          </h1>
+          <p className={styles.heroLead}>
+            EasyWeb guides you through government, medical, and everyday sites with plain language,
+            voice help, and a live preview of what&apos;s being filled.
           </p>
-        </header>
-
-        <section aria-labelledby="needs-heading">
-          <h2 id="needs-heading">What do you need help with?</h2>
-          <ul className={styles.needGrid}>
-            {NEED_OPTIONS.map((opt) => (
-              <li key={opt.id}>
-                <button
-                  type="button"
-                  className={
-                    selectedNeeds.includes(opt.id) ? styles.needActive : styles.needCard
-                  }
-                  aria-pressed={selectedNeeds.includes(opt.id)}
-                  onClick={() => toggleNeed(opt.id)}
-                >
-                  <span className={styles.needLabel}>{opt.label}</span>
-                  {opt.desc ? <span className={styles.needDesc}>{opt.desc}</span> : null}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section aria-labelledby="options-heading">
-          <h2 id="options-heading">Accessibility options</h2>
-          <div className={styles.toggleRow}>
-            {QUICK_TOGGLES.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                className={profile[key] ? styles.chipOn : styles.chip}
-                aria-pressed={profile[key]}
-                onClick={() =>
-                  key === 'voiceOnly'
-                    ? updateProfile({ voiceOnly: !profile.voiceOnly })
-                    : toggleOption(key)
-                }
-              >
-                {label}
-              </button>
-            ))}
+          <div className={styles.heroActions}>
+            <button type="button" className={styles.primary} onClick={scrollToSetup}>
+              Personalize my experience
+            </button>
+            <button type="button" className={styles.secondary} onClick={finish}>
+              Jump straight in
+            </button>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <footer className={styles.footer}>
-          <button type="button" className={styles.primary} onClick={finish}>
-            Start a new session
-          </button>
-          <button type="button" className={styles.link} onClick={finish}>
-            Skip for now
-          </button>
-        </footer>
-      </main>
+      <section className={styles.features} aria-labelledby="features-heading">
+        <h2 id="features-heading" className={styles.sectionTitle}>
+          How EasyWeb helps
+        </h2>
+        <ul className={styles.featureGrid}>
+          {FEATURES.map((f) => (
+            <li key={f.title} className={styles.featureCard}>
+              <span className={styles.featureIcon} aria-hidden="true">
+                {f.icon}
+              </span>
+              <h3>{f.title}</h3>
+              <p>{f.desc}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section id="setup" className={styles.setup} aria-labelledby="setup-heading">
+        <div className={styles.setupInner}>
+          <header className={styles.setupHeader}>
+            <h2 id="setup-heading">Set up your workspace</h2>
+            <p>Pick what applies to you. You can change everything later from the app.</p>
+          </header>
+
+          <div className={styles.setupGrid}>
+            <article className={styles.setupPanel} aria-labelledby="needs-heading">
+              <h3 id="needs-heading">What do you need help with?</h3>
+              <ul className={styles.needGrid}>
+                {NEED_OPTIONS.map((opt) => (
+                  <li key={opt.id}>
+                    <button
+                      type="button"
+                      className={
+                        selectedNeeds.includes(opt.id) ? styles.needActive : styles.needCard
+                      }
+                      aria-pressed={selectedNeeds.includes(opt.id)}
+                      onClick={() => toggleNeed(opt.id)}
+                    >
+                      <span className={styles.needLabel}>{opt.label}</span>
+                      {opt.desc ? <span className={styles.needDesc}>{opt.desc}</span> : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </article>
+
+            <article className={styles.setupPanel} aria-labelledby="options-heading">
+              <h3 id="options-heading">Accessibility options</h3>
+              <div className={styles.toggleRow}>
+                {QUICK_TOGGLES.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={profile[key] ? styles.chipOn : styles.chip}
+                    aria-pressed={profile[key]}
+                    onClick={() =>
+                      key === 'voiceOnly'
+                        ? updateProfile({ voiceOnly: !profile.voiceOnly })
+                        : toggleOption(key)
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </article>
+          </div>
+
+          <footer className={styles.setupFooter}>
+            <button type="button" className={styles.primary} onClick={finish}>
+              Start a new session
+            </button>
+            <button type="button" className={styles.link} onClick={finish}>
+              Skip for now
+            </button>
+          </footer>
+        </div>
+      </section>
+
+      <footer className={styles.siteFooter}>
+        <EasyWebLogo size={32} showWordmark />
+        <p>© {new Date().getFullYear()} EasyWeb · Built for accessible browsing</p>
+      </footer>
     </div>
   )
 }

@@ -2,7 +2,7 @@ import re
 import unicodedata
 
 # cleans user query before sending to llm for inference
-def _clean(self, query: str) -> str:
+def _clean(query: str) -> str:
     if not query:
         return ""
 
