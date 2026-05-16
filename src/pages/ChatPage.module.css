@@ -1,5 +1,7 @@
 .shell {
   display: flex;
+  flex-direction: row;
+  align-items: stretch;
   min-height: 100vh;
   background: var(--color-bg);
 }
@@ -15,7 +17,7 @@
 
 .topBar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
 }
 
@@ -32,15 +34,67 @@
   background: var(--color-tea-green);
 }
 
+.topBarTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
 .topBarTitle h1 {
   font-size: var(--font-size-xl);
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topBarTitle p {
-  margin: 0;
+  margin: 0.25rem 0 0;
   color: var(--color-text-muted);
   font-size: 0.95em;
+}
+
+.renameHeaderBtn {
+  padding: 0.35rem 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.renameHeaderBtn:hover {
+  background: var(--color-tea-green);
+}
+
+.headerRename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.headerInput {
+  flex: 1;
+  min-width: 160px;
+  padding: 0.45rem 0.65rem;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.headerSave {
+  padding: 0.45rem 0.85rem;
+  border: 2px solid var(--color-vintage-grape);
+  border-radius: var(--radius-sm);
+  background: var(--color-tea-green);
+  font-weight: 600;
 }
 
 .chatArea {
