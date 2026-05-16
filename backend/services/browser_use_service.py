@@ -81,4 +81,32 @@ class BrowserUseService:
                 intent=InvalidIntent(reason="Invalid JSON response from LLM"),
             )
 
+    # submit the currently displayed simplified form with browser-use, and return a ConfirmationResponse that tells us whether the submission was successful or not, and any relevant details.
+    async def submit_form(self, form_state: FormResponse, agent: Agent) -> ConfirmationResponse:
+        """Submit the currently displayed simplified form with browser-use."""
+        task = f"""
+        Submit the currently active website form using these simplified form values.
+
+        Form state:
+        {form_state.model_dump_json(indent=2)}
+
+        Rules:
+        - Use the actual website UI; do not invent a submission.
+        - If a required value is missing, stop and explain what is missing.
+        - Return JSON only matching this shape:
+        {ConfirmationResponse.model_json_schema()}
+        """
+
+        history = await self._run_agent_task(task, agent)
+        text = self._history_text(history)
+
+        try:
+            return ConfirmationResponse.model_validate_json(self._extract_json_object(text))
+        except (json.JSONDecodeError, ValidationError, ValueError):
+            return ConfirmationResponse(
+                type=UIResponseType.confirmation,
+                title="Form submission status",
+                message=text or "The form submission finished, but no confirmation details were returned.",
+            )
+
     
