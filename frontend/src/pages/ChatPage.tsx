@@ -21,6 +21,9 @@ export function ChatPage() {
     createSession,
     renameSession,
     simplifiedUi,
+    apiStatus,
+    userSessionId,
+    syncWithBackend,
   } = useSession()
   const { width: sidebarWidth, onResizeStart: onSidebarResizeStart } = useSidebarResize()
   const { width: previewWidth, onResizeStart: onPreviewResizeStart } = usePreviewResize()
@@ -31,10 +34,10 @@ export function ChatPage() {
   const activeSession = sessions.find((s) => s.id === activeSessionId)
 
   useEffect(() => {
-    if (!activeSessionId && sessions.length === 0) {
-      createSession()
+    if (!activeSessionId && sessions.length === 0 && apiStatus !== 'connecting') {
+      void createSession()
     }
-  }, [activeSessionId, sessions.length, createSession])
+  }, [activeSessionId, sessions.length, createSession, apiStatus])
 
   useEffect(() => {
     if (editingHeaderTitle) {
@@ -49,7 +52,7 @@ export function ChatPage() {
   }
 
   const handleNewChat = () => {
-    createSession()
+    void createSession()
   }
 
   const startHeaderRename = () => {
@@ -112,6 +115,34 @@ export function ChatPage() {
         </header>
 
         <AccessibilityToolbar />
+
+        <div
+          className={
+            apiStatus === 'connected'
+              ? styles.apiBannerOk
+              : apiStatus === 'connecting'
+                ? styles.apiBannerPending
+                : styles.apiBannerWarn
+          }
+          role="status"
+        >
+          {apiStatus === 'connected' && (
+            <>
+              Session API connected
+              {userSessionId ? ` · user ${userSessionId.slice(0, 8)}…` : ''}
+            </>
+          )}
+          {apiStatus === 'connecting' && 'Connecting to session API…'}
+          {apiStatus === 'offline' && 'Backend offline — using local chats only'}
+          {apiStatus === 'error' &&
+            'Session API error — start backend (port 8000), then click Retry'}
+          {apiStatus === 'idle' && 'Session API idle'}
+          {(apiStatus === 'offline' || apiStatus === 'error') && (
+            <button type="button" className={styles.apiRetry} onClick={() => void syncWithBackend()}>
+              Retry
+            </button>
+          )}
+        </div>
 
         <div className={styles.chatArea}>
           <ChatPanel />

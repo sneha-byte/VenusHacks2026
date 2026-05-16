@@ -59,8 +59,8 @@ export function OnboardingPage() {
     })
   }
 
-  const finish = () => {
-    createSession()
+  const finish = async () => {
+    await createSession()
     setOnboardingComplete(true)
     navigate('/app')
   }

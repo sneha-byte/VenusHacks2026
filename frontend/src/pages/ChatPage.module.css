@@ -119,6 +119,46 @@
   font-weight: 600;
 }
 
+.apiBannerOk,
+.apiBannerPending,
+.apiBannerWarn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9em;
+  font-weight: 600;
+  border: 2px solid var(--color-border);
+}
+
+.apiBannerOk {
+  background: var(--color-dry-sage);
+  color: var(--color-jet-black);
+}
+
+.apiBannerPending {
+  background: var(--color-surface-elevated);
+  color: var(--color-text-muted);
+}
+
+.apiBannerWarn {
+  background: #fff5f7;
+  color: var(--color-jet-black);
+  border-color: var(--color-blush-rose);
+}
+
+.apiRetry {
+  padding: 0.25rem 0.65rem;
+  border: 2px solid var(--color-jet-black);
+  border-radius: var(--radius-sm);
+  background: var(--color-blush-rose);
+  color: var(--color-ivory);
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
 .chatArea {
   flex: 1;
   display: flex;

@@ -14,9 +14,9 @@ MAX_CONTEXT_WINDOW = 5
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
 
 # Redis
-REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = os.getenv("REDIS_PORT")
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = os.getenv("REDIS_PORT", "6379")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD") or None
 
 # Session expiration in seconds
 SESSION_EXPIRATION = 60 * 60 * 24
