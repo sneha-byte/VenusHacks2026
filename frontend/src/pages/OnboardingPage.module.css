@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  background: linear-gradient(160deg, var(--color-vintage-grape) 0%, #2e2a42 40%, var(--color-bg) 40%);
+  background: linear-gradient(160deg, var(--color-jet-black) 0%, #1e252c 40%, var(--color-bg) 40%);
 }
 
 .card {
@@ -18,7 +18,7 @@
 
 .hero h1 {
   font-size: var(--font-size-2xl);
-  color: var(--color-vintage-grape);
+  color: var(--color-jet-black);
 }
 
 .hero p {
@@ -77,8 +77,9 @@
 }
 
 .chipOn {
-  background: var(--color-vanilla-custard);
-  border-color: var(--color-vintage-grape);
+  background: var(--color-blush-rose);
+  border-color: var(--color-jet-black);
+  color: var(--color-ivory);
   font-weight: 600;
 }
 
@@ -96,9 +97,10 @@
   padding: 0.9rem 1.5rem;
   font-size: var(--font-size-lg);
   font-weight: 700;
-  border: 2px solid var(--color-vintage-grape);
+  border: 2px solid var(--color-jet-black);
   border-radius: var(--radius-md);
-  background: var(--color-accent);
+  background: var(--color-blush-rose);
+  color: var(--color-ivory);
 }
 
 .link {

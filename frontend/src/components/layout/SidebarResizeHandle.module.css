@@ -3,7 +3,7 @@
   width: 8px;
   margin: 0 -4px;
   cursor: col-resize;
-  background: var(--color-ash-grey);
+  background: var(--color-dust-grey);
   transition: background 120ms ease;
   position: relative;
   z-index: 2;
@@ -11,7 +11,7 @@
 
 .handle:hover,
 .handle:focus-visible {
-  background: var(--color-vanilla-custard);
+  background: var(--color-blush-rose);
 }
 
 .handle::after {

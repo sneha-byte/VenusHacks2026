@@ -10,6 +10,7 @@ const NEED_OPTIONS = [
   { id: 'elderly', label: 'Elderly or non-technical', desc: 'Large text, voice help, plain language' },
   { id: 'dyslexia', label: 'Dyslexia', desc: 'OpenDyslexic font and high contrast' },
   { id: 'executive', label: 'Executive dysfunction', desc: 'One step at a time with undo' },
+  { id: 'other', label: 'Other', desc: '' },
 ]
 
 const QUICK_TOGGLES = [
@@ -70,7 +71,7 @@ export function OnboardingPage() {
                   onClick={() => toggleNeed(opt.id)}
                 >
                   <span className={styles.needLabel}>{opt.label}</span>
-                  <span className={styles.needDesc}>{opt.desc}</span>
+                  {opt.desc ? <span className={styles.needDesc}>{opt.desc}</span> : null}
                 </button>
               </li>
             ))}

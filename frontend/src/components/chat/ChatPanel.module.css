@@ -34,12 +34,12 @@
 }
 
 .userBubble {
-  background: var(--color-tea-green);
+  background: var(--color-dry-sage);
   align-self: flex-end;
 }
 
 .assistantBubble {
-  background: var(--color-cream);
+  background: var(--color-ivory);
   align-self: flex-start;
 }
 
@@ -72,15 +72,17 @@
 .mic,
 .micActive,
 .send {
-  border: 2px solid var(--color-vintage-grape);
+  border: 2px solid var(--color-jet-black);
   border-radius: var(--radius-md);
   padding: 0.65rem 1rem;
   font-weight: 600;
-  background: var(--color-accent);
+  background: var(--color-blush-rose);
+  color: var(--color-ivory);
 }
 
 .micActive {
-  background: var(--color-tea-green);
+  background: var(--color-dry-sage);
+  color: var(--color-jet-black);
 }
 
 .send:disabled {

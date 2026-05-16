@@ -5,18 +5,19 @@ AI-powered accessibility tool for simplifying confusing websites (DMV, healthcar
 **Repo layout**
 
 - `backend/` — FastAPI + browser-use agent, sessions, sandbox
-- Root (`src/`, `package.json`) — EasyWeb React web app (onboarding, chat, simplified UI, sandbox preview)
+- `frontend/` — EasyWeb React web app (onboarding, chat, simplified UI, sandbox preview)
 
 ## Web frontend (EasyWeb)
 
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).
 
-Set `VITE_API_URL=http://localhost:8000` in `.env` (see `.env.example`).
+Set `VITE_API_URL=http://localhost:8000` in `frontend/.env` (see `frontend/.env.example`).
 
 | Endpoint | Purpose |
 |----------|---------|
@@ -38,10 +39,10 @@ uvicorn app:app --reload --port 8000
 
 | Name | Hex |
 |------|-----|
-| Vintage Grape | `#413c58` |
-| Ash Grey | `#a3c4bc` |
-| Tea Green | `#bfd7b5` |
-| Cream | `#e7efc5` |
-| Vanilla Custard | `#f2dda4` |
+| Jet Black | `#2c363f` |
+| Blush Rose | `#e75a7c` |
+| Ivory | `#f2f5ea` |
+| Dust Grey | `#d6dbd2` |
+| Dry Sage | `#bbc7a4` |
 
 Fonts: **Lexend** (default), **OpenDyslexic** (dyslexia mode).

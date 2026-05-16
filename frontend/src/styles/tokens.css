@@ -1,0 +1,64 @@
+:root {
+  /* Palette */
+  --color-jet-black: #2c363f;
+  --color-blush-rose: #e75a7c;
+  --color-ivory: #f2f5ea;
+  --color-dust-grey: #d6dbd2;
+  --color-dry-sage: #bbc7a4;
+
+  /* Legacy aliases (used across component CSS) */
+  --color-vintage-grape: var(--color-jet-black);
+  --color-ash-grey: var(--color-dust-grey);
+  --color-tea-green: var(--color-dry-sage);
+  --color-cream: var(--color-ivory);
+  --color-vanilla-custard: var(--color-blush-rose);
+
+  --color-bg: var(--color-ivory);
+  --color-surface: #f5f8f0;
+  --color-surface-elevated: #ffffff;
+  --color-text: var(--color-jet-black);
+  --color-text-muted: #5c656e;
+  --color-border: var(--color-dust-grey);
+  --color-accent: var(--color-blush-rose);
+  --color-accent-hover: #d44a6a;
+  --color-success: var(--color-dry-sage);
+  --color-header-bg: var(--color-jet-black);
+  --color-header-text: var(--color-ivory);
+
+  --font-body: 'Lexend', system-ui, sans-serif;
+  --font-dyslexic: 'OpenDyslexic', 'Lexend', system-ui, sans-serif;
+
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.35rem;
+  --font-size-2xl: 1.75rem;
+  --line-height: 1.65;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-soft: 0 4px 20px rgba(44, 54, 63, 0.1);
+  --focus-ring: 0 0 0 3px var(--color-blush-rose), 0 0 0 5px var(--color-jet-black);
+  --transition: 180ms ease;
+}
+
+[data-large-text='true'] {
+  --font-size-base: 1.2rem;
+  --font-size-lg: 1.35rem;
+  --font-size-xl: 1.55rem;
+  --font-size-2xl: 2rem;
+}
+
+[data-high-contrast='true'] {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-text: #1a1f24;
+  --color-text-muted: #2c363f;
+  --color-border: #1a1f24;
+  --color-header-bg: #1a1f24;
+  --color-accent: #e75a7c;
+  --color-accent-hover: #c94a68;
+}
+
+[data-reduce-clutter='true'] .optional-chrome {
+  display: none !important;
+}

@@ -20,6 +20,7 @@
 }
 
 .chipActive {
-  background: var(--color-vanilla-custard);
-  border-color: var(--color-vintage-grape);
+  background: var(--color-blush-rose);
+  border-color: var(--color-jet-black);
+  color: var(--color-ivory);
 }

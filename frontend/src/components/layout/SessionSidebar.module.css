@@ -5,8 +5,8 @@
   flex-shrink: 0;
   height: 100vh;
   padding: 1rem;
-  background: var(--color-vintage-grape);
-  color: var(--color-cream);
+  background: var(--color-jet-black);
+  color: var(--color-header-text);
   overflow: hidden;
 }
 
@@ -22,15 +22,15 @@
 .newChat {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 2px solid var(--color-cream);
+  border: 2px solid var(--color-header-text);
   border-radius: var(--radius-md);
-  background: var(--color-accent);
-  color: var(--color-vintage-grape);
+  background: var(--color-blush-rose);
+  color: var(--color-ivory);
   font-weight: 700;
 }
 
 .newChat:hover {
-  background: var(--color-tea-green);
+  background: var(--color-accent-hover);
 }
 
 .list {
@@ -77,7 +77,7 @@
   border: 2px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-cream);
+  color: var(--color-header-text);
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -120,12 +120,12 @@
   border: 2px solid var(--color-ash-grey);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-cream);
+  color: var(--color-header-text);
 }
 
 .iconBtn:hover {
-  background: rgba(242, 221, 164, 0.2);
-  border-color: var(--color-vanilla-custard);
+  background: rgba(231, 90, 124, 0.2);
+  border-color: var(--color-blush-rose);
 }
 
 .iconBtnDanger:hover {
@@ -140,7 +140,7 @@
   border: 2px solid var(--color-ash-grey);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-cream);
+  color: var(--color-header-text);
   font-size: 0.72rem;
   font-weight: 600;
 }
