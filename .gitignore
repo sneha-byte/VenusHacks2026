@@ -16,6 +16,7 @@ dist-ssr
 # Python / backend
 .venv
 backend/.env
+backend/.browseruse
 __pycache__
 *.pyc
 
