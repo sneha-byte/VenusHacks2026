@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from browser_use import Agent
+from browser_use.browser.profile import ViewportSize
 from browser_use.llm import ChatDeepSeek
 from playwright.async_api import (
     Browser,
@@ -52,8 +53,7 @@ class SessionService:
 
         if session_id is None:
             session_id = uuid4()
-
-        context = await self._browser.new_context(viewport={"width": 1280, "height": 720})
+        context = await self._browser.new_context(viewport=ViewportSize(width=1280, height=720))
         page = await context.new_page()
         await page.goto(start_url)
 
@@ -68,7 +68,12 @@ class SessionService:
         return session_id
 
     async def expire_session(self, session_id: UUID4) -> None:
-        self._agents.pop(session_id, None)
+        if session_id not in self._agents:
+            raise ValueError(f"Session {session_id} not found.")
+        agent = self._agents[session_id]
+        await agent.close()
+
+        self._agents.pop(session_id)
         context = self._contexts.pop(session_id, None)
         if context is not None:
             await context.close()
