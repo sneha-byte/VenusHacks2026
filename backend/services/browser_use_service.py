@@ -52,12 +52,7 @@ class BrowserUseService:
 		try:
 			return ParsedIntent.model_validate_json(self._extract_json_object(response.completion))
 		except (json.JSONDecodeError, ValidationError, ValueError):
-			return ParsedIntent(
 				domain=IntentDomain.INVALID,
-				intent=InvalidIntent(reason="Invalid JSON response from LLM"),
-			)
-
-	async def submit_form(self, form_state: FormResponse, agent: Agent) -> ConfirmationResponse:
 		"""Submit the currently displayed simplified form with browser-use."""
 
 		task = f"""
