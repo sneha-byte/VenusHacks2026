@@ -109,4 +109,58 @@ class BrowserUseService:
                 message=text or "The form submission finished, but no confirmation details were returned.",
             )
 
+    # perform the user's intended action in the browser, and return a UIResponse that represents the new state of the UI after performing the action. This will be sent to the frontend to update what the user sees.
+    async def perform_action(
+        self,
+        user_query: UserQuery,
+        user_state: ChatSessionState,
+        intent: ParsedIntent,
+        agent: Agent,
+    ) -> UIBase:
+        """Run the parsed browser/form intent and return UI state for the frontend."""
+        if intent.domain == IntentDomain.INVALID:
+            reason = getattr(intent.intent, "reason", "I could not understand that request.")
+            return MarkdownResponse(type=UIResponseType.markdown, content=reason)
+
+        if intent.domain == IntentDomain.APP:
+            return MarkdownResponse(
+                type=UIResponseType.markdown,
+                content="That is an app-level action. The session service should handle it outside browser-use.",
+            )
+
+        if intent.domain == IntentDomain.FORM:
+            return await self._perform_form_action(user_query, user_state, intent, agent)
+
+        return await self._perform_website_action(user_query, user_state, intent, agent)
+
+    # submit the currently displayed simplified form with browser-use, and return a ConfirmationResponse that tells us whether the submission was successful or not, and any relevant details.
+    async def _perform_form_action(
+        self,
+        user_query: UserQuery,
+        chat_state: ChatSessionState,
+        intent: ParsedIntent,
+        agent: Agent | None,
+    ) -> UIResponse:
+        current_form = self._latest_form(chat_state)
+        if current_form is None:
+            return MarkdownResponse(
+                type=UIResponseType.markdown,
+                content="I do not see a simplified form in the current session yet.",
+            )
+
+        if isinstance(intent.intent, WebsiteIntent) and intent.intent == WebsiteIntent.SUBMIT:
+            return await self.submit_form(current_form, agent)
+
+        if isinstance(intent.intent, FormUpdateIntent):
+            # The current FormUpdateIntent model tells us which field types changed,
+            # but it does not carry the actual target field name or new value yet.
+            # Ask the browser agent to infer the change from the user's natural language.
+            task = self._build_ui_extraction_task(user_query, chat_state, intent)
+            return await self._run_and_parse_ui_response(task, agent)
+
+        return MarkdownResponse(
+            type=UIResponseType.markdown,
+            content="I found the current form, but the parsed intent does not include enough detail to update it.",
+        )
+
     
