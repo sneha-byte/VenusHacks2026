@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useSession } from '../../context/SessionContext'
 import { useVoiceControl } from '../../hooks/useVoiceControl'
+import { MicIcon, StopListeningIcon } from '../icons/VoiceIcons'
 import styles from './ChatPanel.module.css'
 
 export function ChatPanel() {
@@ -70,7 +71,11 @@ export function ChatPanel() {
               aria-label={listening ? 'Stop listening' : 'Start voice input'}
               aria-pressed={listening}
             >
-              {listening ? '■' : '🎙'}
+              {listening ? (
+                <StopListeningIcon className={styles.voiceIcon} />
+              ) : (
+                <MicIcon className={styles.voiceIcon} />
+              )}
             </button>
           )}
           <button

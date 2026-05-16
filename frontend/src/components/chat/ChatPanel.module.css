@@ -80,9 +80,29 @@
   color: var(--color-ivory);
 }
 
+.mic,
+.micActive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.voiceIcon {
+  display: block;
+  flex-shrink: 0;
+}
+
 .micActive {
   background: var(--color-dry-sage);
   color: var(--color-jet-black);
+}
+
+.micActive .voiceIcon {
+  width: 18px;
+  height: 18px;
 }
 
 .send:disabled {
