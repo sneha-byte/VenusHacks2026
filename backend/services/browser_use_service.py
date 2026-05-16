@@ -229,4 +229,45 @@ class BrowserUseService:
         {json.dumps(UI_RESPONSE_ADAPTER.json_schema(), indent=2)}
         """
 
-    
+    @staticmethod
+    def _latest_form(chat_state: ChatSessionState) -> FormResponse | None:
+        # get most recent form response from chat state 
+        for state in reversed(chat_state.ui_states):
+            if isinstance(state, FormResponse):
+                return state
+        return None
+
+    @staticmethod
+    def _history_text(history: Any) -> str:
+        if history is None:
+            return ""
+
+        final_result = history.final_result() if hasattr(history, "final_result") else None
+        if final_result:
+            return str(final_result)
+
+        extracted = history.extracted_content() if hasattr(history, "extracted_content") else []
+        return "\n\n".join(str(item) for item in extracted if item)
+
+    @staticmethod
+    def _llm_text(response: Any) -> str:
+        return str(
+            getattr(response, "completion", None)
+            or getattr(response, "content", None)
+            or response
+        )
+
+    @staticmethod
+    def _extract_json_object(text: str) -> str:
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            stripped = stripped.strip("`").strip()
+            if stripped.lower().startswith("json"):
+                stripped = stripped[4:].strip()
+
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise ValueError("No JSON object found.")
+
+        return stripped[start : end + 1]
