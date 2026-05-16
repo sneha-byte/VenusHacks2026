@@ -1,4 +1,4 @@
-# ClearPath / EasyWeb
+# ClearPath
 
 AI-powered accessibility tool for simplifying confusing websites (DMV, healthcare, government forms). Built for Venus Hacks 2026.
 
