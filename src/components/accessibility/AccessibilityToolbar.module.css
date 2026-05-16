@@ -1,0 +1,25 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip,
+.chipActive {
+  border: 2px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  background: var(--color-surface-elevated);
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.chip:hover {
+  background: var(--color-tea-green);
+}
+
+.chipActive {
+  background: var(--color-vanilla-custard);
+  border-color: var(--color-vintage-grape);
+}

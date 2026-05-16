@@ -1,0 +1,57 @@
+.title {
+  font-size: var(--font-size-lg);
+  margin-bottom: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn,
+.btnPrimary,
+.btnConfirm {
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface-elevated);
+  font-weight: 500;
+}
+
+.btn:hover {
+  background: var(--color-tea-green);
+}
+
+.btnPrimary {
+  background: var(--color-accent);
+  border-color: var(--color-vintage-grape);
+}
+
+.btnConfirm {
+  background: var(--color-tea-green);
+  border-color: var(--color-vintage-grape);
+  font-weight: 600;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voiceHints {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--color-border);
+}
+
+.voiceHints h4 {
+  margin: 0 0 0.35rem;
+  font-size: 1em;
+}
+
+.voiceHints ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--color-text-muted);
+}

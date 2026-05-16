@@ -1,0 +1,36 @@
+.safety {
+  padding: 1rem;
+  border: 2px solid var(--color-vintage-grape);
+  border-radius: var(--radius-md);
+  background: var(--color-cream);
+}
+
+.safety h3 {
+  margin-bottom: 0.35rem;
+}
+
+.safety p {
+  margin-bottom: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.primary {
+  background: var(--color-accent);
+  border: 2px solid var(--color-vintage-grape);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 1rem;
+  font-weight: 700;
+}
+
+.secondary {
+  background: var(--color-surface-elevated);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 1rem;
+}

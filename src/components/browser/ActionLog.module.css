@@ -1,0 +1,35 @@
+.log h3 {
+  font-size: var(--font-size-lg);
+  margin-bottom: 0.5rem;
+}
+
+.log ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.log li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-cream);
+}
+
+.done {
+  border-left: 4px solid var(--color-tea-green);
+}
+
+.waiting {
+  border-left: 4px solid var(--color-vanilla-custard);
+  font-weight: 600;
+}
+
+.pending {
+  border-left: 4px solid var(--color-ash-grey);
+}

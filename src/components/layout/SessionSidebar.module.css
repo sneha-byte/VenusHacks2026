@@ -1,0 +1,91 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 260px;
+  min-width: 260px;
+  height: 100vh;
+  padding: 1rem;
+  background: var(--color-vintage-grape);
+  color: var(--color-cream);
+  border-right: 3px solid var(--color-ash-grey);
+}
+
+.brand {
+  padding: 0.5rem 0.25rem;
+}
+
+.logo {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+}
+
+.newChat {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--color-cream);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-vintage-grape);
+  font-weight: 700;
+}
+
+.newChat:hover {
+  background: var(--color-tea-green);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.empty {
+  font-size: 0.9em;
+  color: var(--color-ash-grey);
+  margin: 0;
+}
+
+.item,
+.itemActive {
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  background: transparent;
+  color: var(--color-cream);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.itemActive {
+  background: rgba(231, 239, 197, 0.15);
+  border-color: var(--color-ash-grey);
+}
+
+.itemTitle {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemDate {
+  font-size: 0.8em;
+  color: var(--color-ash-grey);
+}
