@@ -2,15 +2,21 @@ import styles from './SidebarResizeHandle.module.css'
 
 type Props = {
   onMouseDown: (event: React.MouseEvent) => void
+  className?: string
+  ariaLabel?: string
 }
 
-export function SidebarResizeHandle({ onMouseDown }: Props) {
+export function SidebarResizeHandle({
+  onMouseDown,
+  className,
+  ariaLabel = 'Resize sidebar',
+}: Props) {
   return (
     <div
-      className={styles.handle}
+      className={className ? `${styles.handle} ${className}` : styles.handle}
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize sidebar"
+      aria-label={ariaLabel}
       tabIndex={0}
       onMouseDown={onMouseDown}
       onKeyDown={(e) => {

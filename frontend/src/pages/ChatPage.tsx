@@ -7,8 +7,9 @@ import { SidebarResizeHandle } from '../components/layout/SidebarResizeHandle'
 import { AccessibilityToolbar } from '../components/accessibility/AccessibilityToolbar'
 import { ChatPanel } from '../components/chat/ChatPanel'
 import { SimplifiedFormView } from '../components/simplified/SimplifiedFormView'
-import { SandboxBrowser } from '../components/browser/SandboxBrowser'
+import { LiveWebsitePanel } from '../components/browser/LiveWebsitePanel'
 import { useSidebarResize } from '../hooks/useSidebarResize'
+import { usePreviewResize } from '../hooks/usePreviewResize'
 import styles from './ChatPage.module.css'
 
 export function ChatPage() {
@@ -20,9 +21,9 @@ export function ChatPage() {
     createSession,
     renameSession,
     simplifiedUi,
-    sandbox,
   } = useSession()
-  const { width, onResizeStart } = useSidebarResize()
+  const { width: sidebarWidth, onResizeStart: onSidebarResizeStart } = useSidebarResize()
+  const { width: previewWidth, onResizeStart: onPreviewResizeStart } = usePreviewResize()
   const [editingHeaderTitle, setEditingHeaderTitle] = useState(false)
   const [headerDraft, setHeaderDraft] = useState('')
   const headerInputRef = useRef<HTMLInputElement>(null)
@@ -63,12 +64,10 @@ export function ChatPage() {
     setEditingHeaderTitle(false)
   }
 
-  const hasSandbox = Boolean(sandbox.url || sandbox.streamUrl)
-
   return (
     <div className={styles.shell}>
-      <SessionSidebar width={width} onNewChat={handleNewChat} />
-      <SidebarResizeHandle onMouseDown={onResizeStart} />
+      <SessionSidebar width={sidebarWidth} onNewChat={handleNewChat} />
+      <SidebarResizeHandle onMouseDown={onSidebarResizeStart} />
 
       <div className={styles.main}>
         <header className={styles.topBar}>
@@ -123,12 +122,16 @@ export function ChatPage() {
             </div>
           )}
 
-          {hasSandbox && (
-            <div className={styles.agentResults}>
-              <SandboxBrowser />
-            </div>
-          )}
         </div>
+      </div>
+
+      <SidebarResizeHandle
+        className={styles.previewResize}
+        ariaLabel="Resize website preview"
+        onMouseDown={onPreviewResizeStart}
+      />
+      <div className={styles.previewSlot} style={{ width: previewWidth }}>
+        <LiveWebsitePanel />
       </div>
     </div>
   )
