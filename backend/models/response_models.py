@@ -77,7 +77,7 @@ class RadioField(BaseFormField):
 class MultiSelectField(BaseFormField):
     type: Literal[FormFieldType.multiselect]
     options: List[FormOption]
-    selected: List[str] = []
+    selected: List[str] = Field(default_factory=list)
 
 
 class SliderField(BaseFormField):
@@ -164,7 +164,7 @@ UIResponse = Union[
 # The state of an individual chat session
 class ChatSessionState(BaseModel):
     id: UUID4 = Field(default_factory=uuid4)
-    ui_states: List[UIResponse] = []
+    ui_states: List[UIResponse] = Field(default_factory=list)
 
 
 class AccessibilityOptions(BaseModel):
@@ -180,6 +180,6 @@ class AccessibilityOptions(BaseModel):
 class UserState(BaseModel):
     id: UUID4 = Field(default_factory=uuid4)
     onboarded: bool = False
-    chat_sessions: List[ChatSessionState] = []
-    accessibility_options: AccessibilityOptions
+    chat_sessions: List[ChatSessionState] = Field(default_factory=list)
+    accessibility_options: AccessibilityOptions = Field(default_factory=AccessibilityOptions)
 

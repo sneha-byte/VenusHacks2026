@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Union
 from pydantic import BaseModel, UUID4
-from response_models import FormFieldType, UserState, UIBase
+from models.response_models import FormFieldType, UIResponse, UserState
 
 
 #user inputs text query in the app
@@ -70,4 +70,4 @@ class UpdateUserStateRequest(BaseModel):
 # update ui in current chat session 
 class UpdateSessionStateRequest(BaseModel):
     session_id: UUID4
-    new_ui_state: UIBase
+    new_ui_state: UIResponse

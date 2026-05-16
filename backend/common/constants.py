@@ -20,3 +20,5 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 
 # Session expiration in seconds
 SESSION_EXPIRATION = 60 * 60 * 24
+USER_KEY_PREFIX = "user"
+CHAT_SESSION_KEY_PREFIX = "chat_session"
