@@ -89,3 +89,5 @@ class SessionService:
         agent.task = user_input
         result = await agent.run()
         return {"result": str(result)}
+
+session_service = SessionService()
