@@ -10,6 +10,12 @@ class UserQuery(BaseModel):
     query: str
 
 
+# request body for POST /chat, includes the user's query and active browser/chat session
+class AgentChatRequest(UserQuery):
+    # Browser/chat session that should handle this query.
+    sessionId: UUID4
+
+
 # High Level user Intent Domain such as open settings click renew 
 class IntentDomain(str, Enum):
     # Top-level bucket that decides which service should handle the request.

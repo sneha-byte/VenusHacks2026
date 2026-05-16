@@ -152,7 +152,6 @@ class ConversationMessage(BaseModel):
     message: str
     timestamp: datetime = Field(default_factory=datetime.now)
 
-
 class ConversationResponse(UIBase):
     # A grouped conversation block when the frontend should show message history.
     type: Literal[UIResponseType.conversation]
