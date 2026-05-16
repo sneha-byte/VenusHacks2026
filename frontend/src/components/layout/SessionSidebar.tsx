@@ -134,13 +134,13 @@ function SessionRow({
           >
             <span className={styles.itemTitle}>{session.title}</span>
             <time
-              className={styles.itemDate}
+              className={`${styles.itemDate} optional-chrome`}
               dateTime={new Date(session.updatedAt).toISOString()}
             >
               {formatSessionDate(session.updatedAt)}
             </time>
           </button>
-          <div className={styles.rowActions}>
+          <div className={`${styles.rowActions} optional-chrome`}>
             <button
               type="button"
               className={styles.iconBtn}

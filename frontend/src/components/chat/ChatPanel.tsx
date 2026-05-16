@@ -26,7 +26,7 @@ export function ChatPanel() {
         aria-relevant="additions"
       >
         {messages.length === 0 ? (
-          <p className={styles.hint}>
+          <p className={`${styles.hint} optional-chrome`}>
             Describe what you need — for example, which website or form you want help with.
           </p>
         ) : (

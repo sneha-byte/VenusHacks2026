@@ -100,7 +100,7 @@ export function ChatPage() {
                 {activeSession && (
                   <button
                     type="button"
-                    className={styles.renameHeaderBtn}
+                    className={`${styles.renameHeaderBtn} optional-chrome`}
                     onClick={startHeaderRename}
                   >
                     Rename chat
@@ -108,7 +108,7 @@ export function ChatPage() {
                 )}
               </div>
             )}
-            <p>Chat, voice, and simplified UI</p>
+            <p className="optional-chrome">Chat, voice, and simplified UI</p>
           </div>
         </header>
 

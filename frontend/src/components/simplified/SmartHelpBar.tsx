@@ -22,16 +22,25 @@ export function SmartHelpBar({ onNext, onBack }: Props) {
         <button type="button" className={styles.btn} onClick={explain}>
           Explain this question
         </button>
-        <button type="button" className={styles.btn} onClick={autofill}>
+        <button type="button" className={`${styles.btn} optional-chrome`} onClick={autofill}>
           Autofill
         </button>
-        <button type="button" className={styles.btn} onClick={readAloud} disabled={!profile.readAloud}>
+        <button
+          type="button"
+          className={`${styles.btn} optional-chrome`}
+          onClick={readAloud}
+          disabled={!profile.readAloud}
+        >
           Read aloud
         </button>
-        <button type="button" className={styles.btn} onClick={() => sendMessage('Show an example answer')}>
+        <button
+          type="button"
+          className={`${styles.btn} optional-chrome`}
+          onClick={() => sendMessage('Show an example answer')}
+        >
           Show example
         </button>
-        <button type="button" className={styles.btn} onClick={undoLastChange}>
+        <button type="button" className={`${styles.btn} optional-chrome`} onClick={undoLastChange}>
           Undo
         </button>
         <button type="button" className={styles.btnPrimary} onClick={onBack}>
