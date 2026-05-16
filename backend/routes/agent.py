@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-
 from models.request_models import UserQuery, IntentDomain
 from models.response_models import ChatResponse, ChatResponseType
 from services.browser_use_service import BrowserUseService, UI_RESPONSE_ADAPTER
