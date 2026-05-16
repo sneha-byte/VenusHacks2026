@@ -1,15 +1,95 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Union, Literal
+from typing import List, Union, Optional, Literal
 from uuid import uuid4
-from pydantic import BaseModel, Field, UUID4
-
-from models.request_models import AppIntent
+from pydantic import BaseModel, UUID4, Field
 
 
-# =========================================================
-# ENUMS
-# =========================================================
+#user inputs text query in the app
+class UserQuery(BaseModel):
+    # Raw natural-language request typed or spoken by the user.
+    query: str
+    session_id: UUID4
+
+
+# High Level user Intent Domain such as open settings click renew 
+class IntentDomain(str, Enum):
+    # Top-level bucket that decides which service should handle the request.
+    APP = "app"              # Control your application
+    WEBSITE = "website"      # Interact with webpage content
+    FORM = "form"
+    INVALID = "invalid"
+
+# Invalid intent
+class InvalidIntent(BaseModel):
+    # Human-readable explanation of why the request could not be classified.
+    reason: str
+
+# app intent types such as switch tab, open settings, minimize browser
+class AppIntentTypes(str, Enum):
+    # Actions that affect our app shell instead of the website inside the browser.
+    SWITCH_TAB = "switch_conversation_tab"
+    DELETE_CONVERSATION = "delete_conversation"
+    CREATE_CONVERSATION = "create_conversation"
+    FULL_SCREEN = "full_screen_browser"
+    MINIMIZE = "minimize_browser"
+    OPEN_SETTINGS = "open_settings"
+
+#specific app intent info such as open_settings
+class AppIntent(BaseModel):
+    # App command the session/app layer should execute.
+    type: AppIntentTypes
+    # Target id for commands that operate on a specific session or UI object.
+    id: UUID4 | None = None
+
+#browser intent types such as click, type, select, submit, search, scroll, navigate
+class WebsiteIntent(str, Enum):
+    # Actions browser-use can perform against the actual website.
+    CLICK = "click"
+    TYPE = "type"
+    SELECT = "select"
+    SUBMIT = "submit"
+    SEARCH = "search"
+    SCROLL = "scroll"
+    NAVIGATE = "navigate"
+    UPDATE_FORM = "update_form"
+
+
+# user intent when they want to update a form field value, such as change date to 12/12/2024, or change slider value to 5
+class FormUpdateIntent(BaseModel):
+    # Id of the simplified form the user wants to change.
+    form_reference_id: UUID4 = Field
+    # Field types involved in the update. The natural-language query still carries the exact new value.
+    form_field_new_value: List[FormFieldType]
+
+#user clicked submit 
+class UserSubmitForm(BaseModel):
+    # Id of the simplified form being submitted.
+    reference_id: UUID4
+
+
+# Ai's understanding of user intent, which can be either app control, website interaction, or form update
+class ParsedIntent(BaseModel):
+    # Domain determines whether app/session code, form code, or browser-use should handle it.
+    domain: IntentDomain
+    # Specific action payload for the selected domain.
+    intent: Union[AppIntent, WebsiteIntent, FormUpdateIntent, InvalidIntent]
+
+
+# update user state with new ui state such as accessibility options, or new chat session, or onboarding completion
+class UpdateUserStateRequest(BaseModel):
+    # User session being updated.
+    session_id: UUID4
+    # Full replacement state for that user session.
+    new_user_state: UserState
+
+# update ui in current chat session 
+class UpdateSessionStateRequest(BaseModel):
+    # Chat/session id whose UI state should receive this update.
+    session_id: UUID4
+    # New simplified UI block to store and render.
+    new_ui_state: UIResponse
+
 
 class UIResponseType(str, Enum):
     # Values used by the frontend to decide which simplified UI component to render.
@@ -30,19 +110,11 @@ class FormFieldType(str, Enum):
     slider = "slider"
 
 
-# =========================================================
-# BASE MODELS
-# =========================================================
-
 class UIBase(BaseModel):
     # Every UI object gets an id so it can be stored, updated, or referenced later.
     id: UUID4 = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=datetime.now)
 
-
-# =========================================================
-# FORM FIELDS
-# =========================================================
 
 class FormOption(BaseModel):
     # A selectable option for radio and multiselect form fields.
@@ -112,10 +184,6 @@ FormField = Union[
 ]
 
 
-# =========================================================
-# UI RESPONSE TYPES
-# =========================================================
-
 class FormResponse(UIBase):
     # Simplified version of a website form for the accessible frontend to render.
     type: Literal[UIResponseType.form]
@@ -154,6 +222,7 @@ class ConversationMessage(BaseModel):
     message: str
     timestamp: datetime = Field(default_factory=datetime.now)
 
+
 class ConversationResponse(UIBase):
     # A grouped conversation block when the frontend should show message history.
     type: Literal[UIResponseType.conversation]
@@ -169,10 +238,6 @@ class ConfirmationResponse(UIBase):
     display_document_inline: bool = False
 
 
-# =========================================================
-# MAIN UI STATE
-# =========================================================
-
 UIResponse = Union[
     # Main frontend contract: every assistant/browser result should be one of these.
     FormResponse,
@@ -183,7 +248,11 @@ UIResponse = Union[
 ]
 
 
-# The state of an individual chat session
+class AgentResponse(BaseModel):
+    response_type: UIResponseType
+    response: UIResponse
+
+
 class ChatSessionState(BaseModel):
     # One chat/browser session id. Redis can use this id for per-session UI state.
     id: UUID4 = Field(default_factory=uuid4)
@@ -201,7 +270,6 @@ class AccessibilityOptions(BaseModel):
     text_scaling: float = 1.0
 
 
-# The state of a user
 class UserState(BaseModel):
     id: UUID4 = Field(default_factory=uuid4)
     onboarded: bool = False
@@ -218,6 +286,7 @@ class GetChatDetailsResponse(BaseModel):
 class ChatResponseType(str, Enum):
     APP_INTENT = "app_intent"
     UI_RESPONSE = "UI_response"
+
 
 class ChatResponse(BaseModel):
     response_type: ChatResponseType
