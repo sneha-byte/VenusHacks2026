@@ -107,6 +107,7 @@ class FormResponse(UIBase):
     description: Optional[str] = None
     fields: List[FormField]
     submitted: bool = False
+    is_next: bool = False
 
 
 class MarkdownResponse(UIBase):
