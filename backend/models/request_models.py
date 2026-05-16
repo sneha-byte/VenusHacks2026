@@ -16,7 +16,9 @@ class IntentDomain(str, Enum):
     FORM = "form"
     INVALID = "invalid"
 
-
+# Invalid intent
+class InvalidIntent(BaseModel):
+    reason: str
 
 # app intent types such as switch tab, open settings, minimize browser
 class AppIntentTypes(str, Enum):
@@ -57,7 +59,7 @@ class UserSubmitForm(BaseModel):
 # Ai's understanding of user intent, which can be either app control, website interaction, or form update
 class ParsedIntent(BaseModel):
     domain: IntentDomain
-    intent: Union[AppIntent, WebsiteIntent, FormUpdateIntent]
+    intent: Union[AppIntent, WebsiteIntent, FormUpdateIntent, InvalidIntent]
 
 
 # update user state with new ui state such as accessibility options, or new chat session, or onboarding completion

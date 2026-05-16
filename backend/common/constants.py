@@ -3,10 +3,14 @@ load_dotenv()
 
 import os
 
+#Agent config
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL")
 DEEPSEEK_URL = "https://api.deepseek.com/"
 
+MAX_CONTEXT_WINDOW = 5
+
+# FastAPI config
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
 
 # Redis
