@@ -208,3 +208,7 @@ class UserState(BaseModel):
     chat_session_ids: List[UUID4] = Field(default_factory=list)
     accessibility_options: AccessibilityOptions = Field(default_factory=AccessibilityOptions)
 
+
+class GetChatDetailsResponse(BaseModel):
+    page_urls: List[str] = Field(default_factory=list)
+    chat_session_states: List[ChatSessionState]

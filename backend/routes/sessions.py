@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import UUID4
 
 from models.request_models import UpdateSessionStateRequest, UpdateUserStateRequest
-from models.response_models import UserState, ChatSessionState
+from models.response_models import UserState, ChatSessionState, UIBase, GetChatDetailsResponse
 from services.redis_service import redis_service
 from services.session_service import session_service
 
@@ -110,3 +110,16 @@ async def delete_message_session(
 async def update_message_session(request: UpdateSessionStateRequest):
 	await redis_service.set_chat_message(request.session_id, request.new_ui_state)
 	return request.new_ui_state
+
+
+@session_router.get("/chat-session-detail")
+async def get_message_details(
+	session_id: UUID4 = Query(..., description="Chat session id"),
+) -> GetChatDetailsResponse:
+	session_context = session_service.get_session_context(session_id)
+	pages = [
+		page.url for page in session_context.pages
+	]
+
+	messages = await redis_service.get_chat_messages(session_id)
+	return GetChatDetailsResponse(page_urls=pages, chat_session_states=messages)
