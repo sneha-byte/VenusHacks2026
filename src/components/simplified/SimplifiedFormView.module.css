@@ -1,0 +1,71 @@
+.wrap {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-muted);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.formHeader h2 {
+  font-size: var(--font-size-xl);
+}
+
+.formHeader p {
+  color: var(--color-text-muted);
+}
+
+.stepLabel {
+  font-weight: 600;
+  color: var(--color-vintage-grape);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin: 1.25rem 0;
+}
+
+.field,
+.fieldActive {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field label,
+.fieldActive label {
+  font-weight: 600;
+}
+
+.fieldActive {
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-cream);
+  border: 2px solid var(--color-vanilla-custard);
+}
+
+.field input,
+.field textarea,
+.fieldActive input,
+.fieldActive textarea {
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.85rem;
+  background: var(--color-surface-elevated);
+  width: 100%;
+}
+
+.help {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--color-text-muted);
+}
