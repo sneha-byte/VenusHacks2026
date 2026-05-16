@@ -42,7 +42,7 @@ class RedisService:
     async def set_user_session(self, user_state: UserState) -> None:
         await self.redis.set(
             self._user_key(user_state.id),
-            user_state.model_dump_json(exclude={"chat_sessions"}),
+            user_state.model_dump_json(),
             ex=SESSION_EXPIRATION,
         )
 
@@ -105,3 +105,6 @@ class RedisService:
     async def delete_chat_message(self, session_id: UUID4, message_id) -> bool:
         deleted_count = await self.redis.hdel(self._chat_message_key(session_id), message_id)
         return deleted_count > 0
+
+
+redis_service = RedisService()

@@ -1,5 +1,4 @@
-from uuid import uuid4
-
+import uuid
 from browser_use import Agent
 from browser_use.browser.profile import ViewportSize
 from browser_use.llm import ChatDeepSeek
@@ -10,7 +9,6 @@ from playwright.async_api import (
     async_playwright,
 )
 from pydantic import UUID4
-
 from common.constants import DEEPSEEK_API_KEY
 
 
@@ -41,18 +39,12 @@ class SessionService:
     def get_session_agent(self, session_id: UUID4) -> Agent | None:
         return self._agents.get(session_id)
 
-
-
-    async def create_new_session(self, session_id: UUID4 | None = None, start_url: str = "about:blank") -> UUID4:
-        #  if the caller passes a session_id that already has an agent
-        if session_id is not None and session_id in self._agents:
-            return session_id
+    async def create_new_session(self, start_url: str = "about:blank") -> UUID4:
+        session_id = uuid.uuid4()
         #  if start() hasn't been called yet
         if self._browser is None:
             raise RuntimeError("SessionService.start() must be called before create_new_session().")
 
-        if session_id is None:
-            session_id = uuid4()
         context = await self._browser.new_context(viewport=ViewportSize(width=1280, height=720))
         page = await context.new_page()
         await page.goto(start_url)
@@ -84,3 +76,5 @@ class SessionService:
 
     def process_user_input(self):
         ...
+
+session_service = SessionService()

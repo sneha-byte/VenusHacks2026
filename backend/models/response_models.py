@@ -180,6 +180,6 @@ class AccessibilityOptions(BaseModel):
 class UserState(BaseModel):
     id: UUID4 = Field(default_factory=uuid4)
     onboarded: bool = False
-    chat_sessions: List[ChatSessionState] = Field(default_factory=list)
+    chat_session_ids: List[UUID4] = Field(default_factory=list)
     accessibility_options: AccessibilityOptions = Field(default_factory=AccessibilityOptions)
 
