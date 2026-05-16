@@ -173,6 +173,8 @@ class AccessibilityOptions(BaseModel):
     dyslexia_friendly: bool = False
     full_voice: bool = False
 
+    text_scaling: float = 1.0
+
 
 # The state of a user
 class UserState(BaseModel):
