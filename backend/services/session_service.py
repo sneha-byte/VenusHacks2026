@@ -70,9 +70,14 @@ class SessionService:
         if context is not None:
             await context.close()
 
-    async def create_session_view(self, session_id: UUID4) -> dict:
+    def get_session_context(self, session_id: UUID4) -> BrowserContext | None:
+        return self._contexts.get(session_id, None)
+
+    async def create_session_view(self, session_id: UUID4, page_index) -> dict:
         agent = self._agents.get(session_id)
         context = self._contexts.get(session_id)
+        requested_page = context.pages[page_index] if context.pages else None
+
         if agent is None or context is None:
             raise KeyError(f"Unknown session: {session_id}")
         page = context.pages[0] if context.pages else None

@@ -185,7 +185,8 @@ UIResponse = Union[
 class ChatSessionState(BaseModel):
     # One chat/browser session id. Redis can use this id for per-session UI state.
     id: UUID4 = Field(default_factory=uuid4)
-    # Ordered UI states shown during this chat session.
+    created_at: datetime = Field(default_factory=datetime.now)
+    chat_name: Optional[str] = None
     ui_states: List[UIResponse] = Field(default_factory=list)
 
 
@@ -206,3 +207,7 @@ class UserState(BaseModel):
     chat_session_ids: List[UUID4] = Field(default_factory=list)
     accessibility_options: AccessibilityOptions = Field(default_factory=AccessibilityOptions)
 
+
+class GetChatDetailsResponse(BaseModel):
+    page_urls: List[str] = Field(default_factory=list)
+    chat_session_states: List[ChatSessionState]

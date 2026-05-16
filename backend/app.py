@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from common.constants import ALLOWED_ORIGINS
-from routes.agent import agent_router
+# from routes.agent import agent_router
 from routes.sessions import session_router
 from services.session_service import session_service
 
@@ -45,7 +45,7 @@ app.add_middleware(
 )
 
 app.include_router(session_router)
-app.include_router(agent_router)
+# app.include_router(agent_router)
 
 
 @app.get("/health")
