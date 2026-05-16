@@ -75,7 +75,9 @@ export function LiveWebsitePanel() {
           )}
         </>
       ) : (
-        <div className={styles.empty} aria-hidden="true" />
+        <div className={styles.empty}>
+          <p className={styles.emptyMessage}>Doc preview will appear here</p>
+        </div>
       )}
     </aside>
   )
