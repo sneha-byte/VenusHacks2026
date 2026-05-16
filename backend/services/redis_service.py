@@ -4,7 +4,7 @@ import redis.asyncio as redis
 from pydantic import UUID4
 
 from common.constants import REDIS_HOST, REDIS_PASSWORD, REDIS_PORT, SESSION_EXPIRATION
-from models.response_models import UserState, UIBase
+from models.app_models import UIBase, UserState
 
 USER_KEY_PREFIX = "user"
 CHAT_SESSION_KEY_PREFIX = "chat_session"
