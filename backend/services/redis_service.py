@@ -1,12 +1,10 @@
-import uuid
 from typing import List
 
 import redis.asyncio as redis
 from pydantic import UUID4
 
 from common.constants import REDIS_HOST, REDIS_PASSWORD, REDIS_PORT, SESSION_EXPIRATION
-from models.response_models import ChatSessionState, UserState, UIResponse, UIBase, UIResponseType, \
-    ConversationResponse, ConversationMessage, AccessibilityOptions
+from models.response_models import UserState, UIBase
 
 USER_KEY_PREFIX = "user"
 CHAT_SESSION_KEY_PREFIX = "chat_session"
@@ -102,7 +100,7 @@ class RedisService:
 
         return messages
 
-    async def delete_chat_message(self, session_id: UUID4, message_id) -> bool:
+    async def delete_chat_messages(self, session_id: UUID4, message_id) -> bool:
         deleted_count = await self.redis.hdel(self._chat_message_key(session_id), message_id)
         return deleted_count > 0
 
