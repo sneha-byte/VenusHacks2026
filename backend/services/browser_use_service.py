@@ -49,8 +49,6 @@ class BrowserUseService:
         user_query: UserQuery,
         chat_state: ChatSessionState,
     ) -> ParsedIntent:
-        # The chat state can grow over time. We only include the most recent UI
-        # states so the LLM has enough context without getting a huge prompt.
         capped_state = chat_state.ui_states[-MAX_CONTEXT_WINDOW:]
 
         # This prompt does not ask the LLM to browse yet. It only asks:

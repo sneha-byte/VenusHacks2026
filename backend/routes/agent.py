@@ -8,6 +8,7 @@ from models.request_models import AgentChatRequest, UserQuery
 from models.response_models import ChatSessionState, UIResponse
 from services.browser_use_service import BrowserUseService, UI_RESPONSE_ADAPTER
 from services.redis_service import redis_service
+from services.session_service import session_service
 
 agent_router = APIRouter(tags=["Agent"])
 browser_use_service = BrowserUseService()
@@ -21,7 +22,6 @@ async def _get_chat_state(session_id: UUID4) -> ChatSessionState:
 # returns a UIResponse that the frontend can render, based on the user's query and the current chat state.
 @agent_router.post("/chat")
 async def chat(request: AgentChatRequest) -> UIResponse:
-    from services.session_service import session_service
 
     agent = session_service.get_session_agent(request.sessionId)
     if agent is None:
