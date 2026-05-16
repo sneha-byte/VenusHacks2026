@@ -67,6 +67,7 @@ function loadActiveId(sessions: ChatSession[]): string | null {
 function persist(sessions: ChatSession[], activeId: string | null) {
   localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions))
   if (activeId) localStorage.setItem(ACTIVE_KEY, activeId)
+  else localStorage.removeItem(ACTIVE_KEY)
 }
 
 type SessionContextValue = {
@@ -81,6 +82,8 @@ type SessionContextValue = {
   setActiveFieldId: (id: string | null) => void
   createSession: () => string
   selectSession: (id: string) => void
+  deleteSession: (id: string) => void
+  renameSession: (id: string, title: string) => void
   sendMessage: (text: string) => Promise<void>
   updateFieldValue: (fieldId: string, value: string) => void
   goToStep: (direction: 'next' | 'back') => void
@@ -138,6 +141,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(ACTIVE_KEY, id)
     setActiveFieldId(null)
   }, [])
+
+  const deleteSession = useCallback(
+    (id: string) => {
+      setSessions((prev) => {
+        const next = prev.filter((s) => s.id !== id)
+        const nextActive =
+          activeSessionId === id ? (next[0]?.id ?? null) : activeSessionId
+        setActiveSessionId(nextActive)
+        setActiveFieldId(null)
+        persist(next, nextActive)
+        return next
+      })
+    },
+    [activeSessionId],
+  )
+
+  const renameSession = useCallback(
+    (id: string, title: string) => {
+      const trimmed = title.trim() || 'New chat'
+      setSessions((prev) => {
+        const next = prev.map((s) =>
+          s.id === id ? { ...s, title: trimmed, updatedAt: Date.now() } : s,
+        )
+        persist(next, activeSessionId)
+        return next
+      })
+    },
+    [activeSessionId],
+  )
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -280,6 +312,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setActiveFieldId,
       createSession,
       selectSession,
+      deleteSession,
+      renameSession,
       sendMessage,
       updateFieldValue,
       goToStep,
@@ -311,6 +345,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activeFieldId,
       createSession,
       selectSession,
+      deleteSession,
+      renameSession,
       sendMessage,
       updateFieldValue,
       goToStep,
