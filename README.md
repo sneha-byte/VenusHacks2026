@@ -1,8 +1,13 @@
-# EasyWeb Assistant
+# ClearPath / EasyWeb
 
-Accessible React frontend for simplifying government and medical websites. Built for Venus Hacks 2026.
+AI-powered accessibility tool for simplifying confusing websites (DMV, healthcare, government forms). Built for Venus Hacks 2026.
 
-## Run locally
+**Repo layout**
+
+- `backend/` — FastAPI + browser-use agent, sessions, sandbox
+- Root (`src/`, `package.json`) — EasyWeb React web app (onboarding, chat, simplified UI, sandbox preview)
+
+## Web frontend (EasyWeb)
 
 ```bash
 npm install
@@ -11,9 +16,25 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-**Flow:** Onboarding → **Start a new session** → chat with a **left sidebar** of past sessions. Form preview and website preview only appear after your backend agent returns data (no hardcoded demo content).
+Set `VITE_API_URL=http://localhost:8000` in `.env` (see `.env.example`).
 
-## Color palette
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /chat` | User query → agent response + simplified UI JSON |
+| `POST /sandbox/event` | Mirror user actions to sandboxed browser |
+| `GET /sandbox/stream/:id` | Live browser stream for preview iframe |
+
+## Backend
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app:app --reload --port 8000
+```
+
+## Design
 
 | Name | Hex |
 |------|-----|
@@ -23,30 +44,4 @@ Open [http://localhost:5173](http://localhost:5173).
 | Cream | `#e7efc5` |
 | Vanilla Custard | `#f2dda4` |
 
-## Fonts
-
-- **Default:** [Lexend](https://fonts.google.com/specimen/Lexend) — designed for readability and low visual stress
-- **Dyslexia mode:** [OpenDyslexic](https://opendyslexic.org/) — toggle in onboarding or the accessibility bar
-
-## Backend integration
-
-Set `VITE_API_URL` in `.env` (see `.env.example`).
-
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /chat` | User query → agent response + simplified UI JSON |
-| `POST /sandbox/event` | Mirror clicks/inputs to sandboxed browser |
-| `GET /sandbox/stream/:id` | Live browser stream URL for the preview iframe |
-
-The UI expects a running API; chat shows an error if the backend is unreachable.
-
-## Project structure
-
-```
-src/
-  pages/           Onboarding + chat layout
-  components/      Chat, simplified form, sandbox preview
-  context/         Accessibility profile + session state
-  hooks/           Voice control, sandbox events
-  api/             Backend client stubs
-```
+Fonts: **Lexend** (default), **OpenDyslexic** (dyslexia mode).

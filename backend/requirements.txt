@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+browser-use
+playwright
+redis
