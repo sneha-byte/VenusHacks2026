@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from models.request_models import UserQuery, IntentDomain, AppIntent
-from models.response_models import UIBase, ChatResponse, ChatResponseType
+
+from models.request_models import UserQuery, IntentDomain
+from models.response_models import ChatResponse, ChatResponseType
 from services.browser_use_service import BrowserUseService, UI_RESPONSE_ADAPTER
 from services.redis_service import redis_service
 from services.session_service import session_service
