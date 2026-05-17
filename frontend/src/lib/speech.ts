@@ -18,18 +18,50 @@ export function pickEnglishVoice(): SpeechSynthesisVoice | null {
 }
 
 export function speakText(text: string): void {
+  void speakTextAsync(text)
+}
+
+export function speakTextAsync(text: string): Promise<void> {
   const spoken = textForSpeech(text)
-  if (!spoken || !window.speechSynthesis) return
+  if (!spoken || !window.speechSynthesis) return Promise.resolve()
 
   window.speechSynthesis.cancel()
 
-  const utterance = new SpeechSynthesisUtterance(spoken)
-  utterance.rate = 0.92
-  utterance.lang = 'en-US'
-  const voice = pickEnglishVoice()
-  if (voice) utterance.voice = voice
+  return new Promise((resolve) => {
+    const utterance = new SpeechSynthesisUtterance(spoken)
+    utterance.rate = 0.92
+    utterance.lang = 'en-US'
+    const voice = pickEnglishVoice()
+    if (voice) utterance.voice = voice
 
-  // Chrome can pause the queue until resume() is called.
-  window.speechSynthesis.resume()
-  window.speechSynthesis.speak(utterance)
+    const done = () => resolve()
+    utterance.onend = done
+    utterance.onerror = done
+
+    window.speechSynthesis.resume()
+    window.speechSynthesis.speak(utterance)
+  })
+}
+
+export async function speakTextsSequentially(texts: string[]): Promise<void> {
+  for (const text of texts) {
+    const spoken = textForSpeech(text)
+    if (!spoken) continue
+    await speakTextAsync(spoken)
+  }
+}
+
+export function isReadAloudEnabled(): boolean {
+  try {
+    const raw = localStorage.getItem('clearpath-accessibility')
+    if (!raw) return false
+    const profile = JSON.parse(raw) as { readAloud?: boolean; voiceOnly?: boolean }
+    return profile.readAloud === true || profile.voiceOnly === true
+  } catch {
+    return false
+  }
+}
+
+export function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

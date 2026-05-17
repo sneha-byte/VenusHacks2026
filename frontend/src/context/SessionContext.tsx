@@ -32,6 +32,7 @@ import {
 } from '../api/mapResponse'
 import { extractFirstUrl, previewLabelForUrl } from '../utils/url'
 import { UCI_FORM_TITLE, UCI_FORM_URL } from '../data/uciPostCourseForm'
+import { delay, isReadAloudEnabled, speakTextsSequentially } from '../lib/speech'
 import {
   GUIDED_EXTRACT_DELAY_MS,
   GUIDED_QUESTIONS,
@@ -39,9 +40,10 @@ import {
   buildSubmitConfirmPrompt,
   buildSummary,
   extractingPhaseMessages,
+  extractingSpeechTexts,
+  firstQuestionOnlyMessages,
   formatAnswerRecord,
   formatQuestion,
-  introQuestionMessages,
   normalizeChoice,
   normalizeScale,
   normalizeYesNo,
@@ -169,6 +171,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const syncInFlight = useRef(false)
   const ensuredChatRef = useRef(false)
   const guidedExtractTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const guidedExtractRunIdRef = useRef(0)
   const [isCreatingSession, setIsCreatingSession] = useState(false)
 
   const activeSession = useMemo(
@@ -660,6 +663,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       if (!sessionId) return
 
+      guidedExtractRunIdRef.current += 1
+      const extractRunId = guidedExtractRunIdRef.current
       if (guidedExtractTimerRef.current) {
         clearTimeout(guidedExtractTimerRef.current)
         guidedExtractTimerRef.current = null
@@ -678,26 +683,37 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         },
       }))
 
-      guidedExtractTimerRef.current = setTimeout(() => {
-        guidedExtractTimerRef.current = null
+      const revealFirstQuestion = () => {
         patchSessionById(sessionId!, (s) => {
           if (!s.guidedSurvey?.extracting) return s
           return {
             ...s,
-            messages: [...s.messages, ...introQuestionMessages()],
+            messages: [...s.messages, ...firstQuestionOnlyMessages()],
             guidedSurvey: { ...s.guidedSurvey, extracting: false },
           }
         })
-      }, GUIDED_EXTRACT_DELAY_MS)
+      }
+
+      void (async () => {
+        const minWait = delay(GUIDED_EXTRACT_DELAY_MS)
+        const speechWait = isReadAloudEnabled()
+          ? speakTextsSequentially(extractingSpeechTexts())
+          : Promise.resolve()
+        await Promise.all([minWait, speechWait])
+        if (extractRunId !== guidedExtractRunIdRef.current) return
+        revealFirstQuestion()
+      })()
     },
     [activeSessionId, createSession, patchSessionById],
   )
 
   const exitGuidedSurvey = useCallback(() => {
+    guidedExtractRunIdRef.current += 1
     if (guidedExtractTimerRef.current) {
       clearTimeout(guidedExtractTimerRef.current)
       guidedExtractTimerRef.current = null
     }
+    window.speechSynthesis?.cancel()
     if (!activeSessionId || !activeSession?.guidedSurvey) return
     patchActive((s) => ({
       ...s,

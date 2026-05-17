@@ -58,11 +58,12 @@ export function ChatPanel() {
 
   useEffect(() => {
     if (!profile.readAloud && !profile.voiceOnly) return
+    if (guidedSurveyExtracting) return
     const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
     if (!lastAssistant || lastAssistant.id === lastSpokenMessageIdRef.current) return
     lastSpokenMessageIdRef.current = lastAssistant.id
     speak(lastAssistant.content)
-  }, [messages, profile.readAloud, profile.voiceOnly, speak])
+  }, [messages, profile.readAloud, profile.voiceOnly, guidedSurveyExtracting, speak])
 
   const onMessagesScroll = () => {
     const el = messagesListRef.current

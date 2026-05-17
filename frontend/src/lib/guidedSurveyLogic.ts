@@ -57,16 +57,23 @@ export const GUIDED_TOTAL = UCI_FORM_QUESTIONS.length
 export const GUIDED_QUESTIONS = UCI_FORM_QUESTIONS
 
 /** Shown immediately after the user pastes a form link. */
-export const GUIDED_EXTRACT_DELAY_MS = 2800
+export const GUIDED_EXTRACT_DELAY_MS = 5000
+
+const EXTRACTING_BODY =
+  'Extracting information from the document…\n\nPlease wait a moment while I prepare your questions.'
 
 export function extractingPhaseMessages(): ChatMessage[] {
-  return [
-    surveyMsg('assistant', UCI_FORM_TITLE),
-    surveyMsg(
-      'assistant',
-      'Extracting information from the document…\n\nPlease wait a moment while I prepare your questions.',
-    ),
-  ]
+  return [surveyMsg('assistant', UCI_FORM_TITLE), surveyMsg('assistant', EXTRACTING_BODY)]
+}
+
+/** Full text read aloud before Question 1 appears. */
+export function extractingSpeechTexts(): string[] {
+  return [UCI_FORM_TITLE, EXTRACTING_BODY]
+}
+
+export function firstQuestionOnlyMessages(): ChatMessage[] {
+  const first = UCI_FORM_QUESTIONS[0]
+  return [surveyMsg('assistant', formatQuestion(first, 0, GUIDED_TOTAL))]
 }
 
 export function introQuestionMessages(): ChatMessage[] {
