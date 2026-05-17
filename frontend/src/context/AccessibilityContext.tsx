@@ -8,7 +8,7 @@ import {
 } from 'react'
 import type { AccessibilityProfile } from '../types'
 
-const STORAGE_KEY = 'easyweb-accessibility'
+const STORAGE_KEY = 'clearpath-accessibility'
 
 const defaultProfile: AccessibilityProfile = {
   largeText: false,
@@ -59,7 +59,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     return loaded
   })
   const [onboardingComplete, setOnboardingComplete] = useState(
-    () => localStorage.getItem('easyweb-onboarded') === 'true',
+    () => localStorage.getItem('clearpath-onboarded') === 'true',
   )
 
   const persist = useCallback((next: AccessibilityProfile) => {
@@ -100,7 +100,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
 
   const completeOnboarding = useCallback((value: boolean) => {
     setOnboardingComplete(value)
-    if (value) localStorage.setItem('easyweb-onboarded', 'true')
+    if (value) localStorage.setItem('clearpath-onboarded', 'true')
   }, [])
 
   const value = useMemo(

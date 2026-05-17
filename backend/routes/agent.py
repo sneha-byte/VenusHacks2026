@@ -1,28 +1,1 @@
-from fastapi import APIRouter, HTTPException
-from models.request_models import UserQuery, IntentDomain
-from models.response_models import ChatResponse, ChatResponseType
-from services.browser_use_service import BrowserUseService, UI_RESPONSE_ADAPTER
-from services.redis_service import redis_service
-from services.session_service import session_service
-
-agent_router = APIRouter(tags=["Agent"])
-browser_use_service = BrowserUseService()
-
-# returns a UIResponse that the frontend can render, based on the user's query and the current chat state.
-@agent_router.post("/chat")
-async def chat(request: UserQuery) -> ChatResponse:
-    agent = session_service.get_session_agent(request.session_id)
-    if agent is None:
-        raise HTTPException(404, "Chat session not found. Create a message session first.")
-    # Infer the user's intent based on their query and chat state, perform the action, 
-    # get a UI response, save it to Redis, and return it to the frontend.
-    chat_state = await redis_service.get_chat_messages(request.session_id)
-    parsed_intent = await browser_use_service.infer_user_intent(request, chat_state)
-
-    if parsed_intent.domain == IntentDomain.APP and (app_intent := parsed_intent.intent):
-        return ChatResponse(response_type=ChatResponseType.APP_INTENT, response=app_intent)
-
-    ui_state = await browser_use_service.perform_action(request, chat_state, parsed_intent, agent)
-
-    await redis_service.set_chat_message(request.session_id, ui_state)
-    return ChatResponse(response_type=ChatResponseType.UI_RESPONSE, response=UI_RESPONSE_ADAPTER.dump(ui_state))
+import datetimeimport uuidfrom fastapi import APIRouter, HTTPExceptionfrom models.app_models import (    UserQuery, IntentDomain, ChatResponseType, ChatResponse,   FormResponse, FormSubmissionRequest, ConversationResponse, UIResponseType)from services.browser_use_service import BrowserUseServicefrom services.redis_service import redis_servicefrom services.session_service import session_serviceagent_router = APIRouter(prefix="/agent", tags=["Agent"])browser_use_service = BrowserUseService()class ConversationMessage:    pass@agent_router.post("/chat")async def chat(request: UserQuery) -> ChatResponse:    context = session_service.get_session_context(request.session_id)    if not context:        raise HTTPException(404, "Chat session not found. Create a message session first.")    # Save user message    new_user_message = ConversationResponse(        id=uuid.uuid4(), type=UIResponseType.conversation,        role="user", message=request.query, created_at=datetime.datetime.now(datetime.timezone.utc)    )    await redis_service.set_chat_message(request.session_id, new_user_message)    chat_state = await redis_service.get_chat_messages(request.session_id)    parsed_intent = await browser_use_service.infer_user_intent(request, chat_state)    if parsed_intent.domain == IntentDomain.APP and (app_intent := parsed_intent.intent):        return ChatResponse(response_type=ChatResponseType.APP_INTENT, response=app_intent)    if parsed_intent.domain == IntentDomain.FORM and (form_intent := parsed_intent.intent):        form_element = await redis_service.get_chat_message(request.session_id, form_intent.form_reference_id)        if not form_element:            raise HTTPException(404, "Form element not found.")        await redis_service.set_chat_message(request.session_id, form_element)        return ChatResponse(response_type=ChatResponseType.FORM_UPDATE_RESPONSE, response=form_intent)    ui_state = await browser_use_service.perform_action(request, chat_state, parsed_intent, context)    await redis_service.set_chat_message(request.session_id, ui_state)    return ChatResponse(response_type=ChatResponseType.UI_RESPONSE, response=ui_state)@agent_router.post("/submit-form")async def submit_form(request: FormSubmissionRequest):    session_id = request.form_reference_id    # Fetch form element    form_element = await redis_service.get_chat_message(session_id)    form_element = FormResponse.model_validate(form_element)    await redis_service.set_chat_message(session_id, form_element)    # Submit form    session_id = request.session_id    form_element = await redis_service.get_chat_message(session_id)    context = session_service.get_session_context(session_id)    if not form_element or not context:        raise HTTPException(404, "Chat session not found. Create a message session first.")    await browser_use_service.submit_form(form_element, context)

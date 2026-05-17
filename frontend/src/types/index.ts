@@ -38,6 +38,8 @@ export type SimplifiedUiState = {
   fields: SimplifiedField[]
   currentStep?: number
   totalSteps?: number
+  /** Backend form UI block id — required for POST /agent/submit-form */
+  formReferenceId?: string
 }
 
 export type ActionLogItem = {
@@ -46,10 +48,19 @@ export type ActionLogItem = {
   status: 'done' | 'pending' | 'waiting'
 }
 
+export type PreviewPage = {
+  id: string
+  title: string
+  url: string
+  isActive: boolean
+}
+
 export type SandboxSession = {
   url?: string
   contextLabel?: string
   streamUrl?: string
+  pages: PreviewPage[]
+  activePageId?: string
   paused: boolean
   minimized: boolean
 }

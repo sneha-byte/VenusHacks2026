@@ -3,9 +3,9 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from common.constants import ALLOWED_ORIGINS
-# from routes.agent import agent_router
+from routes.agent import agent_router
+from routes.sandbox import sandbox_router
 from routes.sessions import session_router
 from services.session_service import session_service
 
@@ -17,7 +17,7 @@ if not _cors_origins:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_):
 	try:
 		await session_service.start()
 	except Exception as exc:
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
 	title="ClearPath API",
-	description="Backend AI orchestration layer for EasyWeb.",
+	description="Backend AI orchestration layer for ClearPath.",
 	version="0.1.0",
 	lifespan=lifespan,
 )
@@ -45,7 +45,8 @@ app.add_middleware(
 )
 
 app.include_router(session_router)
-# app.include_router(agent_router)
+app.include_router(agent_router)
+app.include_router(sandbox_router)
 
 
 @app.get("/health")

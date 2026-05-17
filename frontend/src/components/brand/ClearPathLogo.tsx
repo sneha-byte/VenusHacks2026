@@ -1,4 +1,4 @@
-import styles from './EasyWebLogo.module.css'
+import styles from './ClearPathLogo.module.css'
 
 type Props = {
   size?: number
@@ -6,10 +6,10 @@ type Props = {
   variant?: 'light' | 'dark'
 }
 
-/** Browser window + simplified form lines + check — “the web, made easy.” */
-export function EasyWebLogo({ size = 48, showWordmark = false, variant = 'dark' }: Props) {
+/** Browser window + simplified form lines + check */
+export function ClearPathLogo({ size = 48, showWordmark = false, variant = 'dark' }: Props) {
   return (
-    <div className={styles.brand} aria-label="EasyWeb">
+    <div className={styles.brand} aria-label="ClearPath">
       <svg
         className={styles.mark}
         width={size}
@@ -45,7 +45,7 @@ export function EasyWebLogo({ size = 48, showWordmark = false, variant = 'dark' 
       </svg>
       {showWordmark && (
         <span className={variant === 'light' ? styles.wordmarkLight : styles.wordmark}>
-          EasyWeb
+          ClearPath
         </span>
       )}
     </div>

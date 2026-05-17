@@ -1,11 +1,9 @@
 import uuid
 from typing import List
-
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import UUID4
-
-from models.request_models import UpdateSessionStateRequest, UpdateUserStateRequest
-from models.response_models import UserState, ChatSessionState, UIBase, GetChatDetailsResponse
+from models.app_models import UpdateSessionStateRequest, UpdateUserStateRequest, ChatSessionState, \
+	UserState, GetChatDetailsResponse
 from services.redis_service import redis_service
 from services.session_service import session_service
 
@@ -76,10 +74,7 @@ async def get_message_sessions(
 async def create_message_session(
 	user_session_id: UUID4 = Query(..., description="User session id"),
 ) -> ChatSessionState:
-	try:
-		new_session_id = await session_service.create_new_session()
-	except Exception:
-		new_session_id = uuid.uuid4()
+	new_session_id = await session_service.create_new_session()
 
 	await redis_service.set_chat_session(user_session_id, new_session_id)
 	await _append_chat_session_to_user(user_session_id, new_session_id)
@@ -91,7 +86,7 @@ async def delete_message_session(
 	user_session_id: UUID4 = Query(..., description="User session id"),
 	chat_session_id: UUID4 = Query(..., description="Chat session id"),
 ) -> bool:
-	await redis_service.delete_chat_messages(chat_session_id)
+	await redis_service.delete_chat_messages(user_session_id, chat_session_id)
 	await redis_service.delete_chat_session(user_session_id, chat_session_id)
 	try:
 		await session_service.expire_session(chat_session_id)
@@ -117,9 +112,12 @@ async def get_message_details(
 	session_id: UUID4 = Query(..., description="Chat session id"),
 ) -> GetChatDetailsResponse:
 	session_context = session_service.get_session_context(session_id)
+	if session_context is None:
+		raise HTTPException(404, "Chat session not found")
+
 	pages = [
 		page.url for page in session_context.pages
 	]
 
 	messages = await redis_service.get_chat_messages(session_id)
-	return GetChatDetailsResponse(page_urls=pages, chat_session_states=messages)
+	return GetChatDetailsResponse(page_urls=pages, chat_session_states=messages or [])

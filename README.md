@@ -1,4 +1,4 @@
-# EasyWeb / ClearPath
+# Browzen
 
 EasyWeb is an accessibility-first web assistant for simplifying confusing websites and forms. The app combines a React frontend, a FastAPI backend, Redis-backed session state, and a browser-use agent that can inspect or interact with real websites.
 
@@ -16,6 +16,10 @@ Built for Venus Hacks 2026.
   - confirmations
 - Stores user/session state in Redis.
 - Supports accessibility preferences such as high contrast, dyslexia-friendly fonts, text scaling, and voice-oriented interaction.
+- `backend/` — FastAPI + browser-use agent, sessions, sandbox
+- `frontend/` — ClearPath React web app (onboarding, chat, simplified UI, sandbox preview)
+
+## Web frontend (ClearPath)
 
 ## Project Structure
 

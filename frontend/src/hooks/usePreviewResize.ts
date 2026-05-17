@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-const STORAGE_KEY = 'easyweb-preview-width'
+const STORAGE_KEY = 'clearpath-preview-width'
 const MIN_WIDTH = 280
 const MAX_WIDTH = 720
 const DEFAULT_WIDTH = 420
