@@ -2,10 +2,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
+import { speakText } from '../lib/speech'
 import type { AccessibilityProfile } from '../types'
 
 const STORAGE_KEY = 'clearpath-accessibility'
@@ -87,13 +89,17 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     [profile, persist],
   )
 
+  useEffect(() => {
+    const loadVoices = () => window.speechSynthesis.getVoices()
+    loadVoices()
+    window.speechSynthesis.addEventListener('voiceschanged', loadVoices)
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', loadVoices)
+  }, [])
+
   const speak = useCallback(
     (text: string) => {
       if (!profile.readAloud && !profile.voiceOnly) return
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.92
-      window.speechSynthesis.speak(utterance)
+      speakText(text)
     },
     [profile.readAloud, profile.voiceOnly],
   )

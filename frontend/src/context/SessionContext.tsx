@@ -33,13 +33,15 @@ import {
 import { extractFirstUrl, previewLabelForUrl } from '../utils/url'
 import { UCI_FORM_TITLE, UCI_FORM_URL } from '../data/uciPostCourseForm'
 import {
+  GUIDED_EXTRACT_DELAY_MS,
   GUIDED_QUESTIONS,
   GUIDED_TOTAL,
   buildSubmitConfirmPrompt,
   buildSummary,
+  extractingPhaseMessages,
   formatAnswerRecord,
   formatQuestion,
-  introMessages,
+  introQuestionMessages,
   normalizeChoice,
   normalizeScale,
   normalizeYesNo,
@@ -138,6 +140,7 @@ type SessionContextValue = {
   syncWithBackend: () => Promise<void>
   isCreatingSession: boolean
   guidedSurveyActive: boolean
+  guidedSurveyExtracting: boolean
   guidedSurveyAwaitingSubmit: boolean
   guidedSurveySubmitted: boolean
   guidedSurveyStep: number
@@ -165,6 +168,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const createSessionInFlight = useRef(false)
   const syncInFlight = useRef(false)
   const ensuredChatRef = useRef(false)
+  const guidedExtractTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isCreatingSession, setIsCreatingSession] = useState(false)
 
   const activeSession = useMemo(
@@ -642,6 +646,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   )
 
   const guidedSurveyActive = activeSession?.guidedSurvey?.active ?? false
+  const guidedSurveyExtracting = activeSession?.guidedSurvey?.extracting ?? false
   const guidedSurveyAwaitingSubmit =
     activeSession?.guidedSurvey?.awaitingSubmitConfirm ?? false
   const guidedSurveySubmitted = activeSession?.guidedSurvey?.submitted ?? false
@@ -655,28 +660,51 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       if (!sessionId) return
 
+      if (guidedExtractTimerRef.current) {
+        clearTimeout(guidedExtractTimerRef.current)
+        guidedExtractTimerRef.current = null
+      }
+
       patchSessionById(sessionId, (s) => ({
         ...s,
         title: UCI_FORM_TITLE.slice(0, 48),
-        messages: introMessages(),
+        messages: extractingPhaseMessages(),
         guidedSurvey: {
           formUrl,
           answers: s.guidedSurvey?.answers ?? {},
           active: true,
           stepIndex: 0,
+          extracting: true,
         },
       }))
+
+      guidedExtractTimerRef.current = setTimeout(() => {
+        guidedExtractTimerRef.current = null
+        patchSessionById(sessionId!, (s) => {
+          if (!s.guidedSurvey?.extracting) return s
+          return {
+            ...s,
+            messages: [...s.messages, ...introQuestionMessages()],
+            guidedSurvey: { ...s.guidedSurvey, extracting: false },
+          }
+        })
+      }, GUIDED_EXTRACT_DELAY_MS)
     },
     [activeSessionId, createSession, patchSessionById],
   )
 
   const exitGuidedSurvey = useCallback(() => {
+    if (guidedExtractTimerRef.current) {
+      clearTimeout(guidedExtractTimerRef.current)
+      guidedExtractTimerRef.current = null
+    }
     if (!activeSessionId || !activeSession?.guidedSurvey) return
     patchActive((s) => ({
       ...s,
       guidedSurvey: {
         ...s.guidedSurvey!,
         active: false,
+        extracting: false,
       },
       messages: [
         ...s.messages,
@@ -727,6 +755,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const submitGuidedSurveyAnswer = useCallback(
     (raw: string) => {
       if (!activeSessionId || !activeSession?.guidedSurvey?.active) return
+      if (activeSession.guidedSurvey.extracting) return
 
       const text = raw.trim()
       if (!text) return
@@ -962,6 +991,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       confirmSubmit,
       isCreatingSession,
       guidedSurveyActive,
+      guidedSurveyExtracting,
       guidedSurveyAwaitingSubmit,
       guidedSurveySubmitted,
       guidedSurveyStep,
@@ -994,6 +1024,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       loadChatFromBackend,
       confirmSubmit,
       guidedSurveyActive,
+      guidedSurveyExtracting,
       guidedSurveyAwaitingSubmit,
       guidedSurveySubmitted,
       guidedSurveyStep,

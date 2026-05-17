@@ -72,6 +72,8 @@ export type GuidedSurveyState = {
   answers: Record<string, string>
   active: boolean
   stepIndex: number
+  /** Brief pause after link paste before first question */
+  extracting?: boolean
   /** All questions answered; waiting for Yes/No to submit */
   awaitingSubmitConfirm?: boolean
   /** User confirmed and form was sent to Google */

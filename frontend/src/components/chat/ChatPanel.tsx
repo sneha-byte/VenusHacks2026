@@ -8,12 +8,13 @@ import { MicIcon, StopListeningIcon } from '../icons/VoiceIcons'
 import styles from './ChatPanel.module.css'
 
 export function ChatPanel() {
-  const { profile } = useAccessibility()
+  const { profile, speak } = useAccessibility()
   const {
     messages,
     sendMessage,
     isAgentBusy,
     guidedSurveyActive,
+    guidedSurveyExtracting,
     guidedSurveyAwaitingSubmit,
     guidedSurveySubmitted,
     guidedSurveyStep,
@@ -29,6 +30,8 @@ export function ChatPanel() {
   const [input, setInput] = useState('')
   const messagesListRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
+  const lastSpokenMessageIdRef = useRef<string | null>(null)
+  const prevReadAloudRef = useRef(profile.readAloud)
 
   const busy = isAgentBusy
   const hasSavedSurvey =
@@ -43,6 +46,23 @@ export function ChatPanel() {
       el.scrollTop = el.scrollHeight
     })
   }, [messages.length, messages])
+
+  useEffect(() => {
+    const enabled = profile.readAloud || profile.voiceOnly
+    const wasEnabled = prevReadAloudRef.current
+    if (enabled && !wasEnabled) {
+      lastSpokenMessageIdRef.current = null
+    }
+    prevReadAloudRef.current = enabled
+  }, [profile.readAloud, profile.voiceOnly])
+
+  useEffect(() => {
+    if (!profile.readAloud && !profile.voiceOnly) return
+    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
+    if (!lastAssistant || lastAssistant.id === lastSpokenMessageIdRef.current) return
+    lastSpokenMessageIdRef.current = lastAssistant.id
+    speak(lastAssistant.content)
+  }, [messages, profile.readAloud, profile.voiceOnly, speak])
 
   const onMessagesScroll = () => {
     const el = messagesListRef.current
@@ -71,10 +91,11 @@ export function ChatPanel() {
     setInput('')
     stickToBottomRef.current = true
 
-    if (guidedSurveyActive) {
+    if (guidedSurveyActive && !guidedSurveyExtracting) {
       submitGuidedSurveyAnswer(text)
       return
     }
+    if (guidedSurveyExtracting) return
 
     if (await tryStartGuided(text)) return
 
@@ -92,13 +113,15 @@ export function ChatPanel() {
     }
   }
 
-  const placeholder = guidedSurveyActive
-    ? guidedSurveyAwaitingSubmit
-      ? 'Reply Yes to submit, or No to keep answers in chat…'
-      : guidedSurveyStep < guidedSurveyTotal
-        ? 'Type your answer and press Send…'
-        : 'Survey complete'
-    : 'Paste the UCI form link or type "start form"…'
+  const placeholder = guidedSurveyExtracting
+    ? 'Extracting information from the document…'
+    : guidedSurveyActive
+      ? guidedSurveyAwaitingSubmit
+        ? 'Reply Yes to submit, or No to keep answers in chat…'
+        : guidedSurveyStep < guidedSurveyTotal
+          ? 'Type your answer and press Send…'
+          : 'Survey complete'
+      : 'Paste the UCI form link or type "start form"…'
 
   return (
     <section
@@ -108,9 +131,11 @@ export function ChatPanel() {
       {guidedSurveyActive && (
         <div className={styles.guidedBar} role="status">
           <span>
-            {guidedSurveyAwaitingSubmit
-              ? 'All questions answered — ready to submit'
-              : `Step-by-step survey · Question ${Math.min(guidedSurveyStep + 1, guidedSurveyTotal)} of ${guidedSurveyTotal}`}
+            {guidedSurveyExtracting
+              ? 'Reading your document…'
+              : guidedSurveyAwaitingSubmit
+                ? 'All questions answered — ready to submit'
+                : `Step-by-step survey · Question ${Math.min(guidedSurveyStep + 1, guidedSurveyTotal)} of ${guidedSurveyTotal}`}
           </span>
           <button type="button" className={styles.cancelGuided} onClick={exitGuidedSurvey}>
             Exit survey
@@ -172,7 +197,7 @@ export function ChatPanel() {
             onChange={(e) => setInput(e.target.value)}
             onPaste={onPaste}
             placeholder={placeholder}
-            disabled={busy || guidedSurveySubmitted}
+            disabled={busy || guidedSurveySubmitted || guidedSurveyExtracting}
             autoComplete="off"
           />
           {supported && (
@@ -190,8 +215,8 @@ export function ChatPanel() {
               )}
             </button>
           )}
-          <button type="submit" className={styles.send} disabled={busy}>
-            {busy ? 'Working…' : 'Send'}
+          <button type="submit" className={styles.send} disabled={busy || guidedSurveyExtracting}>
+            {guidedSurveyExtracting ? 'Please wait…' : busy ? 'Working…' : 'Send'}
           </button>
         </div>
       </form>

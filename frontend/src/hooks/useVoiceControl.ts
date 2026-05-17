@@ -36,6 +36,13 @@ export function useVoiceControl() {
         return
       }
       if (text.includes('read') || text.includes('read aloud')) {
+        const lastAssistant = [...session.messages]
+          .reverse()
+          .find((m) => m.role === 'assistant')
+        if (lastAssistant) {
+          speak(lastAssistant.content)
+          return
+        }
         const field = session.simplifiedUi?.fields.find(
           (f) => f.id === session.activeFieldId,
         )

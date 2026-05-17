@@ -56,12 +56,30 @@ export function buildSummary(answers: Record<string, string>): string {
 export const GUIDED_TOTAL = UCI_FORM_QUESTIONS.length
 export const GUIDED_QUESTIONS = UCI_FORM_QUESTIONS
 
-export function introMessages(): ChatMessage[] {
+/** Shown immediately after the user pastes a form link. */
+export const GUIDED_EXTRACT_DELAY_MS = 2800
+
+export function extractingPhaseMessages(): ChatMessage[] {
+  return [
+    surveyMsg('assistant', UCI_FORM_TITLE),
+    surveyMsg(
+      'assistant',
+      'Extracting information from the document…\n\nPlease wait a moment while I prepare your questions.',
+    ),
+  ]
+}
+
+export function introQuestionMessages(): ChatMessage[] {
   const first = UCI_FORM_QUESTIONS[0]
   return [
-    surveyMsg('assistant', `${UCI_FORM_TITLE}\n\n${UCI_FORM_INTRO}`),
+    surveyMsg('assistant', UCI_FORM_INTRO),
     surveyMsg('assistant', formatQuestion(first, 0, GUIDED_TOTAL)),
   ]
+}
+
+/** @deprecated Use extractingPhaseMessages + introQuestionMessages */
+export function introMessages(): ChatMessage[] {
+  return [...extractingPhaseMessages(), ...introQuestionMessages()]
 }
 
 export function buildSubmitConfirmPrompt(summary: string): string {
