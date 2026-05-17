@@ -1,10 +1,8 @@
 import uuid
 from typing import List
-
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import UUID4
-
-from models.app_models import UpdateSessionStateRequest, UpdateUserStateRequest, UIBase, ChatSessionState, \
+from models.app_models import UpdateSessionStateRequest, UpdateUserStateRequest, ChatSessionState, \
 	UserState, GetChatDetailsResponse
 from services.redis_service import redis_service
 from services.session_service import session_service

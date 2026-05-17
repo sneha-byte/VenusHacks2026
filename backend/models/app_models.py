@@ -60,7 +60,7 @@ class FormUpdateIntent(BaseModel):
     # Id of the simplified form the user wants to change.
     form_reference_id: UUID4 = Field
     # Field types involved in the update. The natural-language query still carries the exact new value.
-    form_field_new_value: List[FormFieldType]
+    form_field_new_value: List[FormField]
 
 #user clicked submit 
 class UserSubmitForm(BaseModel):
@@ -286,6 +286,7 @@ class GetChatDetailsResponse(BaseModel):
 class ChatResponseType(str, Enum):
     APP_INTENT = "app_intent"
     UI_RESPONSE = "UI_response"
+    FORM_UPDATE_RESPONSE = "form_update_response"
 
 
 class ChatResponse(BaseModel):

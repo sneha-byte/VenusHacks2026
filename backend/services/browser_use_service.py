@@ -8,8 +8,8 @@ from models.app_models import (
 	InvalidIntent,
 	ParsedIntent,
 	UserQuery,
-	UIResponseType, UIBase, FormResponse, MarkdownResponse, ConfirmationResponse, UIResponse,
-	ChatSessionState, AgentResponse, AppIntent,
+	UIResponseType, UIBase, FormResponse, MarkdownResponse, UIResponse,
+	ChatSessionState, AgentResponse,
 )
 
 
@@ -52,30 +52,26 @@ class BrowserUseService:
 		try:
 			return ParsedIntent.model_validate_json(self._extract_json_object(response.completion))
 		except (json.JSONDecodeError, ValidationError, ValueError):
+			return ParsedIntent(
 				domain=IntentDomain.INVALID,
-		"""Submit the currently displayed simplified form with browser-use."""
-
-		task = f"""
-        Submit the currently active website form using these simplified form values.
-
-        Form state:
-        {form_state.model_dump_json(indent=2)}
-
-        Rules:
-        - Use the actual website UI; do not invent a submission.
-        - If a required value is missing, stop and explain what is missing.
-        - Return JSON only matching this shape:
-        {ConfirmationResponse.model_json_schema()}
-        """
-		try:
-			return await self._run_agent_task(task, agent, ConfirmationResponse)
-
-		except (json.JSONDecodeError, ValidationError, ValueError):
-			return ConfirmationResponse(
-				type=UIResponseType.confirmation,
-				title="Form submission status",
-				message="The form submission finished, but no confirmation details were returned.",
+				intent=InvalidIntent(reason="Failed to parse the response.")
 			)
+
+	async def submit_form(self, form_element: FormResponse, agent: Agent) -> UIResponse:
+		"""Submit a form element to the browser."""
+		task = f"""
+			You are a form submitter for an accessible web assistant.
+			
+			Here is the content of the form to fill in:
+			{form_element.model_dump_json(indent=2)}
+			
+			Fill out the form to the best of the your ability. If there is a missing field,
+			return a ConversationResponse including the missing field.
+			
+			{AgentResponse.model_json_schema()}
+		"""
+		return await self._run_agent_task(task, agent)
+
 
 	async def perform_action(
 		self,
@@ -95,40 +91,30 @@ class BrowserUseService:
 				content="That is an app-level action. The session service should handle it outside browser-use.",
 			)
 
-		return await self._run_agent_task(user_query, intent.intent, user_state, agent)
-
-
-	async def _run_agent_task(
-		self, user_query: UserQuery, intent: AppIntent,
-        chat_state: ChatSessionState,  agent: Agent | None
-	) -> UIResponse:
 		recent_ui_state = [
 			state.model_dump_json() if isinstance(state, BaseModel) else str(state)
-			for state in chat_state.ui_states[-MAX_CONTEXT_WINDOW:]
+			for state in user_state.ui_states[-MAX_CONTEXT_WINDOW:]
 		]
 
 		task = f"""
-        You are controlling a browser for an accessible web assistant.
+	        You are controlling a browser for an accessible web assistant.
 
-        User request:
-        {user_query.query}
+	        {f'User request: {user_query.query}' if user_query else ''}
 
-        Parsed intent:
-        {intent.model_dump_json(indent=2)}
+	        Parsed intent:
+	        {intent.model_dump_json(indent=2)}
 
-        Recent UI state:
-        {json.dumps(recent_ui_state, indent=2, default=str)}
+	        Recent UI state:
+	        {json.dumps(recent_ui_state, indent=2, default=str)}
 
-        Your job:
-        1. Use the browser to satisfy the parsed intent.
-        2. If the page contains a form the user needs to fill, extract it as a FormResponse.
-        3. If the page contains options/results, extract them as a ListResponse.
-        4. If the page contains explanatory information, summarize it as a MarkdownResponse.
-        5. If you submitted something, return a ConfirmationResponse.
-
-        Return JSON only. It must match this schema
-        {AgentResponse.model_json_schema()}
+	        Return JSON only. It must match this schema
+	        {AgentResponse.model_json_schema()}
         """
+		return await self._run_agent_task(task, agent)
+
+	async def _run_agent_task(
+		self, task: str, agent: Agent | None
+	) -> UIResponse:
 		agent.add_new_task(task)
 		result = await agent.run(max_steps=25)
 		text_response = result.final_result()
