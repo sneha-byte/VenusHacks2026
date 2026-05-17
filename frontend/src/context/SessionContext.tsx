@@ -32,7 +32,8 @@ import {
 } from '../api/mapResponse'
 import { extractFirstUrl, previewLabelForUrl } from '../utils/url'
 import { UCI_FORM_TITLE, UCI_FORM_URL } from '../data/uciPostCourseForm'
-import { delay, isReadAloudEnabled, speakTextsSequentially } from '../lib/speech'
+import { delay, speakTextsSequentially } from '../lib/speech'
+import { useAccessibility } from './AccessibilityContext'
 import {
   GUIDED_EXTRACT_DELAY_MS,
   GUIDED_QUESTIONS,
@@ -156,6 +157,7 @@ type SessionContextValue = {
 const SessionContext = createContext<SessionContextValue | null>(null)
 
 export function SessionProvider({ children }: { children: ReactNode }) {
+  const { profile: accessibilityProfile } = useAccessibility()
   const [sessions, setSessions] = useState<ChatSession[]>(loadSessions)
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() =>
     loadActiveId(loadSessions()),
@@ -673,13 +675,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       patchSessionById(sessionId, (s) => ({
         ...s,
         title: UCI_FORM_TITLE.slice(0, 48),
-        messages: extractingPhaseMessages(),
+        messages: [
+          ...s.messages,
+          surveyMsg('assistant', 'Starting a new form…'),
+          ...extractingPhaseMessages(),
+        ],
         guidedSurvey: {
           formUrl,
-          answers: s.guidedSurvey?.answers ?? {},
+          answers: {},
           active: true,
           stepIndex: 0,
           extracting: true,
+          submitted: false,
+          awaitingSubmitConfirm: false,
         },
       }))
 
@@ -696,7 +704,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       void (async () => {
         const minWait = delay(GUIDED_EXTRACT_DELAY_MS)
-        const speechWait = isReadAloudEnabled()
+        const readAloudOn =
+          accessibilityProfile.readAloud || accessibilityProfile.voiceOnly
+        const speechWait = readAloudOn
           ? speakTextsSequentially(extractingSpeechTexts())
           : Promise.resolve()
         await Promise.all([minWait, speechWait])
@@ -704,7 +714,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         revealFirstQuestion()
       })()
     },
-    [activeSessionId, createSession, patchSessionById],
+    [activeSessionId, accessibilityProfile.readAloud, accessibilityProfile.voiceOnly, createSession, patchSessionById],
   )
 
   const exitGuidedSurvey = useCallback(() => {
@@ -823,7 +833,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           messages: [
             ...s.messages,
             surveyMsg('user', text),
-            surveyMsg('assistant', 'Form submitted.'),
+            surveyMsg(
+              'assistant',
+              'Form submitted.\n\nPaste another form link below to start a new survey.',
+            ),
           ],
         }))
         return

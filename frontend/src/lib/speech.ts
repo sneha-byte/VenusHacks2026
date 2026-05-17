@@ -51,17 +51,6 @@ export async function speakTextsSequentially(texts: string[]): Promise<void> {
   }
 }
 
-export function isReadAloudEnabled(): boolean {
-  try {
-    const raw = localStorage.getItem('clearpath-accessibility')
-    if (!raw) return false
-    const profile = JSON.parse(raw) as { readAloud?: boolean; voiceOnly?: boolean }
-    return profile.readAloud === true || profile.voiceOnly === true
-  } catch {
-    return false
-  }
-}
-
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }

@@ -198,7 +198,7 @@ export function ChatPanel() {
             onChange={(e) => setInput(e.target.value)}
             onPaste={onPaste}
             placeholder={placeholder}
-            disabled={busy || guidedSurveySubmitted || guidedSurveyExtracting}
+            disabled={busy || guidedSurveyExtracting}
             autoComplete="off"
           />
           {supported && (

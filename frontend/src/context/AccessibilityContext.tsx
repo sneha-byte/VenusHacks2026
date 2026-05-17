@@ -12,25 +12,15 @@ import type { AccessibilityProfile } from '../types'
 
 const STORAGE_KEY = 'clearpath-accessibility'
 
-const defaultProfile: AccessibilityProfile = {
+export const defaultAccessibilityProfile: AccessibilityProfile = {
   largeText: false,
   highContrast: false,
   dyslexiaFont: false,
-  stepByStep: true,
+  stepByStep: false,
   reduceClutter: false,
   readAloud: false,
   voiceOnly: false,
   needs: [],
-}
-
-function loadProfile(): AccessibilityProfile {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return { ...defaultProfile, ...JSON.parse(raw) }
-  } catch {
-    /* ignore */
-  }
-  return defaultProfile
 }
 
 type AccessibilityContextValue = {
@@ -56,18 +46,20 @@ function applyDataAttributes(profile: AccessibilityProfile) {
 
 export function AccessibilityProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AccessibilityProfile>(() => {
-    const loaded = loadProfile()
-    applyDataAttributes(loaded)
-    return loaded
+    applyDataAttributes(defaultAccessibilityProfile)
+    return defaultAccessibilityProfile
   })
   const [onboardingComplete, setOnboardingComplete] = useState(
     () => localStorage.getItem('clearpath-onboarded') === 'true',
   )
 
+  useEffect(() => {
+    localStorage.removeItem(STORAGE_KEY)
+  }, [])
+
   const persist = useCallback((next: AccessibilityProfile) => {
     setProfile(next)
     applyDataAttributes(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   }, [])
 
   const updateProfile = useCallback(
