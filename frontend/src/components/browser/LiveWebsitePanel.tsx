@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
 import { useSession } from '../../context/SessionContext'
 import { sandboxStreamUrl } from '../../api/backend'
+import { useSandboxStream } from '../../hooks/useSandboxStream'
 import { ActionLog } from './ActionLog'
 import { SafetyConfirmation } from './SafetyConfirmation'
 import styles from './LiveWebsitePanel.module.css'
@@ -22,28 +22,33 @@ export function LiveWebsitePanel() {
     activeSessionId,
   } = useSession()
 
-  const [streamTick, setStreamTick] = useState(0)
+  if (!sandbox.showPreview) {
+    return (
+      <aside className={styles.column} aria-label="Live website preview">
+        <div className={styles.previewLayout}>
+          <div className={styles.previewMain}>
+            <div className={styles.empty}>
+              <p className={styles.emptyMessage}>Doc preview will appear here</p>
+              <p className={styles.emptyHint}>Paste a form link in chat to open it here.</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+    )
+  }
+
   const pages = sandbox.pages ?? []
   const hasPages = pages.length > 0
-  const hasPreview = Boolean(hasPages || sandbox.url || sandbox.streamUrl)
   const activePage =
     pages.find((p) => p.isActive) ??
     pages.find((p) => p.id === sandbox.activePageId)
+  const previewUrl = activePage?.url ?? sandbox.url
+
   const streamBase =
     sandbox.streamUrl ??
-    (activeSessionId && hasPages ? sandboxStreamUrl(activeSessionId) : undefined)
-  const streamSrc = streamBase
-    ? `${streamBase}${streamBase.includes('?') ? '&' : '?'}t=${streamTick}`
-    : undefined
-  const frameSrc = !streamSrc ? sandbox.url : undefined
+    (activeSessionId ? sandboxStreamUrl(activeSessionId) : undefined)
 
-  useEffect(() => {
-    if (!streamBase || sandbox.paused) return
-    const interval = window.setInterval(() => {
-      setStreamTick((t) => t + 1)
-    }, 2000)
-    return () => window.clearInterval(interval)
-  }, [streamBase, sandbox.paused])
+  const { blobUrl, streamError, loading } = useSandboxStream(streamBase, sandbox.paused)
 
   return (
     <aside className={styles.column} aria-label="Live website preview">
@@ -75,83 +80,64 @@ export function LiveWebsitePanel() {
         )}
 
         <div className={styles.previewMain}>
-          {hasPreview ? (
-            <>
-              <header className={styles.header}>
-                <div className={styles.headerText}>
-                  <h2>Live website</h2>
-                  {(activePage?.title || sandbox.contextLabel) && (
-                    <p className={`${styles.context} optional-chrome`}>
-                      {activePage?.title ?? sandbox.contextLabel}
-                    </p>
-                  )}
-                  {(activePage?.url || sandbox.url) && (
-                    <p
-                      className={`${styles.url} optional-chrome`}
-                      title={activePage?.url ?? sandbox.url}
-                    >
-                      {activePage?.url ?? sandbox.url}
-                    </p>
-                  )}
-                </div>
-                <div
-                  className={`${styles.controls} optional-chrome`}
-                  role="toolbar"
-                  aria-label="Preview controls"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setSandboxPaused(!sandbox.paused)}
-                    aria-pressed={sandbox.paused}
-                  >
-                    {sandbox.paused ? 'Resume' : 'Pause'}
-                  </button>
-                  <button type="button" onClick={refreshSandbox}>
-                    Refresh
-                  </button>
-                </div>
-              </header>
+          <header className={styles.header}>
+            <div className={styles.headerText}>
+              <h2>{sandbox.contextLabel ?? 'Form preview'}</h2>
+              {previewUrl && (
+                <p className={`${styles.url} optional-chrome`} title={previewUrl}>
+                  {previewUrl}
+                </p>
+              )}
+            </div>
+            <div
+              className={`${styles.controls} optional-chrome`}
+              role="toolbar"
+              aria-label="Preview controls"
+            >
+              <button
+                type="button"
+                onClick={() => setSandboxPaused(!sandbox.paused)}
+                aria-pressed={sandbox.paused}
+              >
+                {sandbox.paused ? 'Resume' : 'Pause'}
+              </button>
+              <button type="button" onClick={refreshSandbox}>
+                Refresh
+              </button>
+            </div>
+          </header>
 
-              <div className={styles.viewport}>
-                {streamSrc ? (
-                  <img
-                    src={streamSrc}
-                    alt={
-                      activePage?.title
-                        ? `Live stream — ${activePage.title}`
-                        : 'Live browser stream'
-                    }
-                    className={styles.streamFrame}
-                  />
-                ) : frameSrc ? (
-                  <iframe
-                    title="Live website — form filling preview"
-                    src={frameSrc}
-                    className={styles.frame}
-                    sandbox="allow-scripts allow-same-origin allow-forms"
-                  />
-                ) : null}
-                {sandbox.paused && (
-                  <div className={styles.pausedOverlay} aria-live="polite">
-                    Agent paused
-                  </div>
-                )}
+          <div className={styles.viewport}>
+            {blobUrl ? (
+              <img
+                src={blobUrl}
+                alt={activePage?.title ? `Form preview — ${activePage.title}` : 'Form preview'}
+                className={styles.streamFrame}
+              />
+            ) : (
+              <div className={styles.embedFallback}>
+                <p>
+                  {loading
+                    ? 'Loading form in the preview…'
+                    : streamError ?? 'Starting live preview…'}
+                </p>
               </div>
+            )}
+            {sandbox.paused && blobUrl && (
+              <div className={styles.pausedOverlay} aria-live="polite">
+                Preview paused
+              </div>
+            )}
+          </div>
 
-              {actionLog.length > 0 && (
-                <div className={`${styles.footer} optional-chrome`}>
-                  <ActionLog />
-                </div>
-              )}
-              {simplifiedUi && (
-                <div className={styles.footer}>
-                  <SafetyConfirmation />
-                </div>
-              )}
-            </>
-          ) : (
-            <div className={styles.empty}>
-              <p className={styles.emptyMessage}>Doc preview will appear here</p>
+          {actionLog.length > 0 && (
+            <div className={`${styles.footer} optional-chrome`}>
+              <ActionLog />
+            </div>
+          )}
+          {simplifiedUi && (
+            <div className={styles.footer}>
+              <SafetyConfirmation />
             </div>
           )}
         </div>

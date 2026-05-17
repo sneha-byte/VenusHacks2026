@@ -11,8 +11,14 @@ type Props = {
 }
 
 export function SessionSidebar({ width, onNewChat }: Props) {
-  const { sessions, activeSessionId, selectSession, deleteSession, renameSession } =
-    useSession()
+  const {
+    sessions,
+    activeSessionId,
+    selectSession,
+    deleteSession,
+    renameSession,
+    isCreatingSession,
+  } = useSession()
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const handleDelete = (id: string, title: string) => {
@@ -32,8 +38,15 @@ export function SessionSidebar({ width, onNewChat }: Props) {
         <ClearPathLogo size={36} showWordmark variant="light" />
       </div>
 
-      <button type="button" className={styles.newChat} onClick={onNewChat}>
-        + New chat
+      <button
+        type="button"
+        className={styles.newChat}
+        disabled={isCreatingSession}
+        onClick={() => {
+          onNewChat()
+        }}
+      >
+        {isCreatingSession ? 'Creating…' : '+ New chat'}
       </button>
 
       <nav className={styles.list} aria-label="Past sessions">

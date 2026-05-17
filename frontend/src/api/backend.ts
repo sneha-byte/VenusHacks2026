@@ -6,6 +6,21 @@
 import type { BrowserEvent, PreviewPage } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const DEFAULT_TIMEOUT_MS = 12_000
+
+async function apiFetch(
+  url: string,
+  init?: RequestInit,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
 
 export type UserStateDto = {
   id: string
@@ -55,9 +70,25 @@ export function sandboxStreamUrl(chatSessionId: string): string {
   return `${API_BASE}/sandbox/stream/${chatSessionId}`
 }
 
+export async function fetchSandboxStreamPng(streamUrl: string): Promise<Blob> {
+  const res = await apiFetch(
+    streamUrl.includes('?') ? streamUrl : `${streamUrl}?t=${Date.now()}`,
+    undefined,
+    15_000,
+  )
+  if (!res.ok) {
+    throw new Error(`Stream failed (${res.status})`)
+  }
+  const blob = await res.blob()
+  if (!blob.type.startsWith('image/')) {
+    throw new Error('Stream response was not an image')
+  }
+  return blob
+}
+
 export async function checkHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/health`)
+    const res = await apiFetch(`${API_BASE}/health`, undefined, 5_000)
     return res.ok
   } catch {
     return false
@@ -65,28 +96,29 @@ export async function checkHealth(): Promise<boolean> {
 }
 
 export async function createUserSession(): Promise<UserStateDto> {
-  const res = await fetch(`${API_BASE}/session/create-user-session`, { method: 'POST' })
+  const res = await apiFetch(`${API_BASE}/session/create-user-session`, { method: 'POST' })
   return parseJson(res)
 }
 
 export async function getUserSession(userSessionId: string): Promise<UserStateDto> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/session/?session_id=${encodeURIComponent(userSessionId)}`,
   )
   return parseJson(res)
 }
 
 export async function listChatSessions(userSessionId: string): Promise<string[]> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/session/message-sessions?user_session_id=${encodeURIComponent(userSessionId)}`,
   )
   return parseJson(res)
 }
 
 export async function createChatSession(userSessionId: string): Promise<ChatSessionStateDto> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/session/create-message-session?user_session_id=${encodeURIComponent(userSessionId)}`,
     { method: 'POST' },
+    30_000,
   )
   return parseJson(res)
 }
@@ -164,13 +196,64 @@ export async function fetchSandboxPages(chatSessionId: string): Promise<{
   }
 }
 
+export async function openSandboxUrl(
+  chatSessionId: string,
+  url: string,
+): Promise<boolean> {
+  try {
+    const params = new URLSearchParams({
+      session_id: chatSessionId,
+      url,
+    })
+    const res = await apiFetch(
+      `${API_BASE}/sandbox/open?${params}`,
+      { method: 'POST' },
+      65_000,
+    )
+    if (!res.ok) return false
+    const data = (await res.json()) as { ok?: boolean }
+    return data.ok === true
+  } catch {
+    return false
+  }
+}
+
+export async function fillUciFormOnGoogle(
+  chatSessionId: string,
+  answers: Record<string, string>,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await apiFetch(
+      `${API_BASE}/sandbox/fill-uci-form`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: chatSessionId, answers }),
+      },
+      90_000,
+    )
+    const data = (await res.json()) as { ok?: boolean; error?: string }
+    return { ok: data.ok === true, error: data.error }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Fill failed' }
+  }
+}
+
 export async function postSandboxEvent(
   event: BrowserEvent,
   chatSessionId: string,
-): Promise<void> {
-  await fetch(`${API_BASE}/sandbox/event`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...event, sessionId: chatSessionId }),
-  })
+): Promise<boolean> {
+  const timeoutMs = event.type === 'navigate' ? 65_000 : DEFAULT_TIMEOUT_MS
+  try {
+    const res = await apiFetch(`${API_BASE}/sandbox/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...event, sessionId: chatSessionId }),
+    }, timeoutMs)
+    if (!res.ok) return false
+    const data = (await res.json()) as { ok?: boolean }
+    return data.ok !== false
+  } catch {
+    return false
+  }
 }

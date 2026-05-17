@@ -1,43 +1,154 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from 'react'
+import { useAccessibility } from '../../context/AccessibilityContext'
 import { useSession } from '../../context/SessionContext'
 import { useVoiceControl } from '../../hooks/useVoiceControl'
+import { isUciPostCourseFormUrl } from '../../data/uciPostCourseForm'
+import { extractFirstUrl } from '../../utils/url'
 import { MicIcon, StopListeningIcon } from '../icons/VoiceIcons'
 import styles from './ChatPanel.module.css'
 
 export function ChatPanel() {
-  const { messages, sendMessage, isAgentBusy, activeSessionId } = useSession()
+  const { profile } = useAccessibility()
+  const {
+    messages,
+    sendMessage,
+    isAgentBusy,
+    guidedSurveyActive,
+    guidedSurveyAwaitingSubmit,
+    guidedSurveySubmitted,
+    guidedSurveyStep,
+    guidedSurveyTotal,
+    startGuidedSurvey,
+    submitGuidedSurveyAnswer,
+    exitGuidedSurvey,
+    resumeGuidedSurvey,
+    activeSessionId,
+  } = useSession()
   const { listening, supported, startListening, stopListening, transcript } =
     useVoiceControl()
   const [input, setInput] = useState('')
+  const messagesListRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
+
+  const busy = isAgentBusy
+  const hasSavedSurvey =
+    !guidedSurveyActive &&
+    !guidedSurveySubmitted &&
+    messages.some((m) => m.content.includes('Question 1 of'))
+
+  useEffect(() => {
+    const el = messagesListRef.current
+    if (!el || !stickToBottomRef.current) return
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+  }, [messages.length, messages])
+
+  const onMessagesScroll = () => {
+    const el = messagesListRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    stickToBottomRef.current = nearBottom
+  }
+
+  const tryStartGuided = async (text: string) => {
+    const url = extractFirstUrl(text)
+    if (url && isUciPostCourseFormUrl(url)) {
+      await startGuidedSurvey(url)
+      return true
+    }
+    if (/^(start|begin)\s+(form|survey)/i.test(text.trim())) {
+      await startGuidedSurvey()
+      return true
+    }
+    return false
+  }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isAgentBusy || !activeSessionId) return
+    if (!input.trim() || busy) return
     const text = input
     setInput('')
+    stickToBottomRef.current = true
+
+    if (guidedSurveyActive) {
+      submitGuidedSurveyAnswer(text)
+      return
+    }
+
+    if (await tryStartGuided(text)) return
+
     await sendMessage(text)
   }
 
+  const onPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text')
+    const url = extractFirstUrl(pasted)
+    if (url && isUciPostCourseFormUrl(url)) {
+      e.preventDefault()
+      setInput('')
+      stickToBottomRef.current = true
+      void startGuidedSurvey(url)
+    }
+  }
+
+  const placeholder = guidedSurveyActive
+    ? guidedSurveyAwaitingSubmit
+      ? 'Reply Yes to submit, or No to keep answers in chat…'
+      : guidedSurveyStep < guidedSurveyTotal
+        ? 'Type your answer and press Send…'
+        : 'Survey complete'
+    : 'Paste the UCI form link or type "start form"…'
+
   return (
-    <section className={styles.panel} aria-label="Chat">
+    <section
+      className={`${styles.panel} ${profile.dyslexiaFont ? styles.dyslexiaChat : ''}`}
+      aria-label="Chat"
+    >
+      {guidedSurveyActive && (
+        <div className={styles.guidedBar} role="status">
+          <span>
+            {guidedSurveyAwaitingSubmit
+              ? 'All questions answered — ready to submit'
+              : `Step-by-step survey · Question ${Math.min(guidedSurveyStep + 1, guidedSurveyTotal)} of ${guidedSurveyTotal}`}
+          </span>
+          <button type="button" className={styles.cancelGuided} onClick={exitGuidedSurvey}>
+            Exit survey
+          </button>
+        </div>
+      )}
+
+      {!guidedSurveyActive && hasSavedSurvey && activeSessionId && (
+        <div className={styles.guidedBar}>
+          <span>Saved survey in this chat</span>
+          <button type="button" className={styles.cancelGuided} onClick={resumeGuidedSurvey}>
+            Continue survey
+          </button>
+        </div>
+      )}
+
       <div
+        ref={messagesListRef}
         className={styles.messages}
         role="log"
         aria-live="polite"
         aria-relevant="additions"
+        onScroll={onMessagesScroll}
       >
         {messages.length === 0 ? (
           <p className={`${styles.hint} optional-chrome`}>
-            Describe what you need — for example, which website or form you want help with.
+            Paste your UCI post-course form link here, or type &quot;start form&quot;, and I will
+            ask each question one at a time. Scroll up later to see every question and your
+            answers.
           </p>
         ) : (
-          messages.map((msg) => (
+          messages.map((m) => (
             <div
-              key={msg.id}
-              className={msg.role === 'user' ? styles.userBubble : styles.assistantBubble}
+              key={m.id}
+              className={m.role === 'user' ? styles.userBubble : styles.assistantBubble}
             >
-              <span className="sr-only">{msg.role === 'user' ? 'You' : 'Assistant'}:</span>
-              {msg.content}
+              <span className="sr-only">{m.role === 'user' ? 'You' : 'Assistant'}:</span>
+              <span className={styles.messageBody}>{m.content}</span>
             </div>
           ))
         )}
@@ -59,8 +170,9 @@ export function ChatPanel() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your request here…"
-            disabled={isAgentBusy || !activeSessionId}
+            onPaste={onPaste}
+            placeholder={placeholder}
+            disabled={busy || guidedSurveySubmitted}
             autoComplete="off"
           />
           {supported && (
@@ -78,12 +190,8 @@ export function ChatPanel() {
               )}
             </button>
           )}
-          <button
-            type="submit"
-            className={styles.send}
-            disabled={isAgentBusy || !activeSessionId}
-          >
-            {isAgentBusy ? 'Working…' : 'Send'}
+          <button type="submit" className={styles.send} disabled={busy}>
+            {busy ? 'Working…' : 'Send'}
           </button>
         </div>
       </form>

@@ -1,3 +1,10 @@
+import asyncio
+import sys
+
+# Playwright needs subprocess support on Windows (uvicorn defaults to Selector loop).
+if sys.platform == "win32":
+	asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -22,6 +29,10 @@ async def lifespan(_):
 		await session_service.start()
 	except Exception as exc:
 		print(f"Warning: browser agent not started ({exc}).")
+		print(
+			"Form auto-submit needs a browser: install Chrome, or run "
+			"`python -m playwright install chromium` in the backend folder."
+		)
 	yield
 	try:
 		await session_service.stop()

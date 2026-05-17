@@ -34,12 +34,23 @@ class SessionService:
 
 	async def start(self):
 		self._playwright = await async_playwright().start()
-		self._browser = await self._playwright.chromium.launch(
-			headless=True,
-		)
+		last_error: Exception | None = None
+		for channel in ("chrome", "msedge", None):
+			try:
+				kwargs: dict = {"headless": True}
+				if channel is not None:
+					kwargs["channel"] = channel
+				self._browser = await self._playwright.chromium.launch(**kwargs)
+				return
+			except Exception as exc:
+				last_error = exc
+		raise RuntimeError(
+			"Could not launch a browser. Install Chromium with "
+			"`python -m playwright install chromium` or install Google Chrome."
+		) from last_error
 
 	async def stop(self):
-		for session_id in list(self._agents.keys()):
+		for session_id in list(self._contexts.keys()):
 			await self.expire_session(session_id)
 		if self._browser is not None:
 			await self._browser.close()
@@ -48,6 +59,28 @@ class SessionService:
 
 	def has_session(self, session_id: UUID4) -> bool:
 		return session_id in self._contexts
+
+	async def ensure_session(self, session_id: UUID4, start_url: str = "about:blank") -> None:
+		"""Create a Playwright browser context for this chat id if one does not exist."""
+		if self.has_session(session_id):
+			return
+		if self._browser is None:
+			raise RuntimeError(
+				"Browser is not running. In the backend folder run: "
+				"python -m playwright install chromium — then restart uvicorn."
+			)
+
+		context = await self._browser.new_context(
+			viewport={"width": 1280, "height": 720},
+		)
+		page = await context.new_page()
+		await page.goto(start_url, wait_until="domcontentloaded", timeout=60_000)
+
+		page_id = uuid.uuid4()
+		self._contexts[session_id] = context
+		self._pages[session_id] = {page_id: page}
+		self._page_order[session_id] = [page_id]
+		self._active_page_id[session_id] = page_id
 
 	async def create_new_session(self, start_url: str = "about:blank") -> UUID4:
 		session_id = uuid.uuid4()
@@ -96,13 +129,27 @@ class SessionService:
 			result.append(meta)
 		return result, active_id
 
+	async def navigate_to_url(self, session_id: UUID4, url: str) -> PageMeta:
+		context = self._contexts.get(session_id)
+		if context is None:
+			raise KeyError(f"Unknown session: {session_id}")
+
+		active_id = self._active_page_id.get(session_id)
+		pages_map = self._pages.get(session_id, {})
+		if active_id is not None and active_id in pages_map:
+			page = pages_map[active_id]
+			await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+			return await self._page_meta(session_id, active_id, page)
+
+		return await self.open_page(session_id, url)
+
 	async def open_page(self, session_id: UUID4, url: str) -> PageMeta:
 		context = self._contexts.get(session_id)
 		if context is None:
 			raise KeyError(f"Unknown session: {session_id}")
 
 		page = await context.new_page()
-		await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+		await page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
 		page_id = uuid.uuid4()
 		self._pages.setdefault(session_id, {})[page_id] = page
@@ -122,6 +169,12 @@ class SessionService:
 
 	def get_active_page_id(self, session_id: UUID4) -> UUID4 | None:
 		return self._active_page_id.get(session_id)
+
+	def get_active_page(self, session_id: UUID4) -> Page | None:
+		active_id = self._active_page_id.get(session_id)
+		if active_id is None:
+			return None
+		return self._pages.get(session_id, {}).get(active_id)
 
 	async def screenshot_active_page(self, session_id: UUID4) -> bytes:
 		active_id = self._active_page_id.get(session_id)

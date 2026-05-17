@@ -7,9 +7,7 @@ import { SidebarResizeHandle } from '../components/layout/SidebarResizeHandle'
 import { AccessibilityToolbar } from '../components/accessibility/AccessibilityToolbar'
 import { ChatPanel } from '../components/chat/ChatPanel'
 import { SimplifiedFormView } from '../components/simplified/SimplifiedFormView'
-import { LiveWebsitePanel } from '../components/browser/LiveWebsitePanel'
 import { useSidebarResize } from '../hooks/useSidebarResize'
-import { usePreviewResize } from '../hooks/usePreviewResize'
 import styles from './ChatPage.module.css'
 
 export function ChatPage() {
@@ -21,12 +19,8 @@ export function ChatPage() {
     createSession,
     renameSession,
     simplifiedUi,
-    apiStatus,
-    userSessionId,
-    syncWithBackend,
   } = useSession()
   const { width: sidebarWidth, onResizeStart: onSidebarResizeStart } = useSidebarResize()
-  const { width: previewWidth, onResizeStart: onPreviewResizeStart } = usePreviewResize()
   const [editingHeaderTitle, setEditingHeaderTitle] = useState(false)
   const [headerDraft, setHeaderDraft] = useState('')
   const headerInputRef = useRef<HTMLInputElement>(null)
@@ -46,7 +40,7 @@ export function ChatPage() {
   }
 
   const handleNewChat = () => {
-    void createSession()
+    void createSession().catch(() => undefined)
   }
 
   const startHeaderRename = () => {
@@ -110,34 +104,6 @@ export function ChatPage() {
 
         <AccessibilityToolbar />
 
-        <div
-          className={
-            apiStatus === 'connected'
-              ? styles.apiBannerOk
-              : apiStatus === 'connecting'
-                ? styles.apiBannerPending
-                : styles.apiBannerWarn
-          }
-          role="status"
-        >
-          {apiStatus === 'connected' && (
-            <>
-              Session API connected
-              {userSessionId ? ` · user ${userSessionId.slice(0, 8)}…` : ''}
-            </>
-          )}
-          {apiStatus === 'connecting' && 'Connecting to session API…'}
-          {apiStatus === 'offline' && 'Backend offline — using local chats only'}
-          {apiStatus === 'error' &&
-            'Session API error — start backend + Redis, then click Retry'}
-          {apiStatus === 'idle' && 'Session API idle'}
-          {(apiStatus === 'offline' || apiStatus === 'error') && (
-            <button type="button" className={styles.apiRetry} onClick={() => void syncWithBackend()}>
-              Retry
-            </button>
-          )}
-        </div>
-
         <div className={styles.chatArea}>
           <ChatPanel />
 
@@ -146,17 +112,7 @@ export function ChatPage() {
               <SimplifiedFormView />
             </div>
           )}
-
         </div>
-      </div>
-
-      <SidebarResizeHandle
-        className={styles.previewResize}
-        ariaLabel="Resize website preview"
-        onMouseDown={onPreviewResizeStart}
-      />
-      <div className={styles.previewSlot} style={{ width: previewWidth }}>
-        <LiveWebsitePanel />
       </div>
     </div>
   )

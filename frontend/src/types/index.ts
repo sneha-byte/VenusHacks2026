@@ -63,6 +63,19 @@ export type SandboxSession = {
   activePageId?: string
   paused: boolean
   minimized: boolean
+  /** True only after user pastes/sends a link in chat */
+  showPreview: boolean
+}
+
+export type GuidedSurveyState = {
+  formUrl: string
+  answers: Record<string, string>
+  active: boolean
+  stepIndex: number
+  /** All questions answered; waiting for Yes/No to submit */
+  awaitingSubmitConfirm?: boolean
+  /** User confirmed and form was sent to Google */
+  submitted?: boolean
 }
 
 export type ChatSession = {
@@ -72,11 +85,12 @@ export type ChatSession = {
   simplifiedUi: SimplifiedUiState | null
   sandbox: SandboxSession
   actionLog: ActionLogItem[]
+  guidedSurvey?: GuidedSurveyState | null
   updatedAt: number
 }
 
 export type BrowserEvent = {
-  type: 'click' | 'scroll' | 'input' | 'submit'
+  type: 'click' | 'scroll' | 'input' | 'submit' | 'navigate'
   targetId?: string
   payload?: Record<string, unknown>
 }

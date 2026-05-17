@@ -188,5 +188,6 @@ export function buildSandboxView(
     contextLabel: active?.title,
     paused: false,
     minimized: false,
+    showPreview: true,
   }
 }

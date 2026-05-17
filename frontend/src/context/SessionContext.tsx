@@ -20,7 +20,9 @@ import {
   listChatSessions,
   postAgentChat,
   postAgentSubmitForm,
+  openSandboxUrl,
   postSandboxEvent,
+  sandboxStreamUrl,
 } from '../api/backend'
 import {
   buildSandboxView,
@@ -28,9 +30,24 @@ import {
   mapAgentChatResponse,
   type AppIntentAction,
 } from '../api/mapResponse'
+import { extractFirstUrl, previewLabelForUrl } from '../utils/url'
+import { UCI_FORM_TITLE, UCI_FORM_URL } from '../data/uciPostCourseForm'
+import {
+  GUIDED_QUESTIONS,
+  GUIDED_TOTAL,
+  buildSubmitConfirmPrompt,
+  buildSummary,
+  formatAnswerRecord,
+  formatQuestion,
+  introMessages,
+  normalizeChoice,
+  normalizeScale,
+  normalizeYesNo,
+  surveyMsg,
+} from '../lib/guidedSurveyLogic'
 
 const STORAGE = {
-  sessions: 'clearpath-sessions-v3',
+  sessions: 'clearpath-sessions-v4',
   active: 'clearpath-active-session',
   user: 'clearpath-user-session-id',
 } as const
@@ -39,6 +56,7 @@ const emptySandbox = (): SandboxSession => ({
   pages: [],
   paused: false,
   minimized: false,
+  showPreview: false,
 })
 
 function welcomeMessage(): ChatMessage {
@@ -71,6 +89,7 @@ function loadSessions(): ChatSession[] {
     return parsed.map((s) => ({
       ...s,
       sandbox: { ...emptySandbox(), ...s.sandbox, pages: s.sandbox?.pages ?? [] },
+      guidedSurvey: s.guidedSurvey ?? null,
     }))
   } catch {
     return []
@@ -108,6 +127,7 @@ type SessionContextValue = {
   deleteSession: (id: string) => Promise<void>
   renameSession: (id: string, title: string) => void
   sendMessage: (text: string) => Promise<void>
+  openPreviewUrl: (url: string) => Promise<void>
   updateFieldValue: (fieldId: string, value: string) => void
   goToStep: (direction: 'next' | 'back') => void
   undoLastChange: () => void
@@ -116,6 +136,16 @@ type SessionContextValue = {
   refreshSandbox: () => void
   confirmSubmit: () => Promise<void>
   syncWithBackend: () => Promise<void>
+  isCreatingSession: boolean
+  guidedSurveyActive: boolean
+  guidedSurveyAwaitingSubmit: boolean
+  guidedSurveySubmitted: boolean
+  guidedSurveyStep: number
+  guidedSurveyTotal: number
+  startGuidedSurvey: (formUrl?: string) => Promise<void>
+  submitGuidedSurveyAnswer: (text: string) => void
+  exitGuidedSurvey: () => void
+  resumeGuidedSurvey: () => void
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -134,6 +164,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [, setFieldHistory] = useState<Record<string, string>[]>([])
   const createSessionInFlight = useRef(false)
   const syncInFlight = useRef(false)
+  const ensuredChatRef = useRef(false)
+  const [isCreatingSession, setIsCreatingSession] = useState(false)
 
   const activeSession = useMemo(
     () => sessions.find((s) => s.id === activeSessionId) ?? null,
@@ -153,6 +185,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     [activeSessionId],
   )
+
+  const patchSessionById = useCallback((sessionId: string, updater: (s: ChatSession) => ChatSession) => {
+    setSessions((prev) => {
+      const next = prev.map((s) =>
+        s.id === sessionId ? { ...updater(s), updatedAt: Date.now() } : s,
+      )
+      persist(next, sessionId)
+      return next
+    })
+    setActiveSessionId(sessionId)
+  }, [])
 
   const ensureUserSession = useCallback(async (): Promise<string> => {
     const stored = localStorage.getItem(STORAGE.user)
@@ -175,17 +218,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (chatSessionId: string) => {
       if (apiStatus !== 'connected') return
       try {
-        const [detail, { pages, activePageId }] = await Promise.all([
+        const [detail] = await Promise.all([
           getChatSessionDetail(chatSessionId),
           fetchSandboxPages(chatSessionId),
         ])
         patchActive((s) => ({
           ...s,
           simplifiedUi: latestFormFromStates(detail.chat_session_states) ?? s.simplifiedUi,
-          sandbox: {
-            ...s.sandbox,
-            ...buildSandboxView(chatSessionId, pages, activePageId, detail.page_urls),
-          },
         }))
       } catch {
         /* no browser context yet */
@@ -221,6 +260,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [ensureUserSession])
 
+  const addLocalSession = useCallback(() => {
+    const session = createEmptyChatSession()
+    setSessions((prev) => {
+      const next = [session, ...prev]
+      persist(next, session.id)
+      return next
+    })
+    setActiveSessionId(session.id)
+    setActiveFieldId(null)
+    return session.id
+  }, [])
+
   useEffect(() => {
     void syncWithBackend()
   }, [syncWithBackend])
@@ -233,9 +284,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const createSession = useCallback(async () => {
     if (createSessionInFlight.current) {
-      return activeSessionId ?? ''
+      return activeSessionId ?? sessions[0]?.id ?? addLocalSession()
     }
     createSessionInFlight.current = true
+    setIsCreatingSession(true)
     try {
       const healthy = await checkHealth()
 
@@ -243,7 +295,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         try {
           const uid = userSessionId ?? (await ensureUserSession())
           const created = await createChatSession(uid)
-          const session = createEmptyChatSession(String(created.id))
+          const session = {
+            ...createEmptyChatSession(String(created.id)),
+            sandbox: emptySandbox(),
+          }
           setSessions((prev) => {
             const next = [session, ...prev.filter((s) => s.id !== session.id)]
             persist(next, session.id)
@@ -255,25 +310,31 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return session.id
         } catch {
           setApiStatus('error')
-          throw new Error('Could not create chat session on the server.')
+          return addLocalSession()
         }
       }
 
-      // Backend unreachable — local-only chat (offline mode)
       setApiStatus('offline')
-      const session = createEmptyChatSession()
-      setSessions((prev) => {
-        const next = [session, ...prev]
-        persist(next, session.id)
-        return next
-      })
-      setActiveSessionId(session.id)
-      setActiveFieldId(null)
-      return session.id
+      return addLocalSession()
     } finally {
       createSessionInFlight.current = false
+      setIsCreatingSession(false)
     }
-  }, [userSessionId, ensureUserSession, activeSessionId])
+  }, [userSessionId, ensureUserSession, activeSessionId, sessions, addLocalSession])
+
+  useEffect(() => {
+    if (apiStatus === 'connecting' || ensuredChatRef.current) return
+    if (activeSessionId && sessions.some((s) => s.id === activeSessionId)) return
+
+    ensuredChatRef.current = true
+    if (sessions.length > 0) {
+      const id = sessions[0].id
+      setActiveSessionId(id)
+      persist(sessions, id)
+      return
+    }
+    void createSession()
+  }, [apiStatus, activeSessionId, sessions, createSession])
 
   const deleteSession = useCallback(
     async (id: string) => {
@@ -327,12 +388,70 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [createSession, deleteSession, loadChatFromBackend, patchActive],
   )
 
+  const openPreviewUrl = useCallback(
+    async (url: string) => {
+      if (apiStatus !== 'connected') {
+        await syncWithBackend()
+      }
+
+      let sessionId = activeSessionId
+      if (!sessionId || apiStatus !== 'connected') {
+        sessionId = await createSession()
+        if (!sessionId) return
+      }
+      const label = previewLabelForUrl(url)
+
+      patchSessionById(sessionId, (s) => ({
+        ...s,
+        sandbox: {
+          ...emptySandbox(),
+          showPreview: true,
+          url,
+          contextLabel: label,
+          paused: false,
+        },
+      }))
+
+      if (!(await checkHealth())) return
+
+      let ok = await openSandboxUrl(sessionId, url)
+      if (!ok) {
+        ok = await postSandboxEvent({ type: 'navigate', payload: { url } }, sessionId)
+      }
+
+      const { pages, activePageId } = await fetchSandboxPages(sessionId)
+      const view = buildSandboxView(sessionId, pages, activePageId, [url])
+      patchSessionById(sessionId, (s) => ({
+        ...s,
+        sandbox: {
+          showPreview: true,
+          url: view.url ?? url,
+          contextLabel: view.contextLabel ?? label,
+          pages: view.pages,
+          activePageId: view.activePageId,
+          streamUrl: ok ? view.streamUrl ?? sandboxStreamUrl(sessionId) : undefined,
+          paused: false,
+          minimized: false,
+        },
+      }))
+    },
+    [activeSessionId, apiStatus, createSession, patchSessionById, syncWithBackend],
+  )
+
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim()
-      if (!trimmed || !activeSessionId) return
+      if (!trimmed) return
 
-      patchActive((s) => ({
+      let sessionId = activeSessionId
+      if (!sessionId) {
+        sessionId = await createSession()
+        if (!sessionId) return
+      }
+
+      const pastedUrl = extractFirstUrl(trimmed)
+
+      patchSessionById(sessionId, (s) => ({
         ...s,
         title: s.title === 'New chat' ? trimmed.slice(0, 48) : s.title,
         messages: [
@@ -341,18 +460,44 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         ],
       }))
 
+      if (pastedUrl) {
+        await openPreviewUrl(pastedUrl)
+        if (apiStatus !== 'connected') {
+          patchSessionById(sessionId, (s) => ({
+            ...s,
+            messages: [
+              ...s.messages,
+              {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: 'Opening your form in the preview panel…',
+                timestamp: Date.now(),
+              },
+            ],
+          }))
+          return
+        }
+      } else if (apiStatus !== 'connected') {
+        patchSessionById(sessionId, (s) => ({
+          ...s,
+          messages: [
+            ...s.messages,
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: 'Paste a form link in chat to open it in the preview. Start the backend for full AI help.',
+              timestamp: Date.now(),
+            },
+          ],
+        }))
+        return
+      }
+
       setIsAgentBusy(true)
       try {
-        const raw = await postAgentChat(trimmed, activeSessionId)
+        const raw = await postAgentChat(trimmed, sessionId)
         const reply = mapAgentChatResponse(raw)
         if (reply.appIntent) await handleAppIntent(reply.appIntent)
-
-        const { pages, activePageId } = await fetchSandboxPages(activeSessionId)
-        const sandbox = buildSandboxView(activeSessionId, pages, activePageId, [])
-        if (reply.confirmationUrl) {
-          sandbox.url = reply.confirmationUrl
-          sandbox.contextLabel = 'Confirmation'
-        }
 
         const simplifiedUi =
           reply.simplifiedUi ??
@@ -360,7 +505,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             ? { ...activeSession.simplifiedUi, formReferenceId: reply.formReferenceId }
             : activeSession?.simplifiedUi ?? null)
 
-        patchActive((s) => ({
+        patchSessionById(sessionId, (s) => ({
           ...s,
           messages: [
             ...s.messages,
@@ -373,12 +518,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             },
           ],
           simplifiedUi,
-          sandbox: { ...s.sandbox, ...sandbox },
+          sandbox: s.sandbox,
         }))
 
         if (simplifiedUi?.fields[0]) setActiveFieldId(simplifiedUi.fields[0].id)
       } catch {
-        patchActive((s) => ({
+        patchSessionById(sessionId, (s) => ({
           ...s,
           messages: [
             ...s.messages,
@@ -387,8 +532,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
               role: 'assistant',
               content:
                 apiStatus === 'connected'
-                  ? 'Something went wrong. Create a new chat first, then try again.'
-                  : 'I could not reach the server. Start the backend and Redis, then refresh.',
+                  ? 'Something went wrong. Try again or paste your link for preview only.'
+                  : 'I could not reach the server. Start the backend and Redis, then click Retry.',
               timestamp: Date.now(),
             },
           ],
@@ -397,7 +542,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsAgentBusy(false)
       }
     },
-    [activeSessionId, activeSession?.simplifiedUi, apiStatus, handleAppIntent, patchActive],
+    [
+      activeSessionId,
+      activeSession?.simplifiedUi,
+      apiStatus,
+      createSession,
+      handleAppIntent,
+      openPreviewUrl,
+      patchSessionById,
+    ],
   )
 
   const updateFieldValue = useCallback(
@@ -488,6 +641,245 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [activeSessionId],
   )
 
+  const guidedSurveyActive = activeSession?.guidedSurvey?.active ?? false
+  const guidedSurveyAwaitingSubmit =
+    activeSession?.guidedSurvey?.awaitingSubmitConfirm ?? false
+  const guidedSurveySubmitted = activeSession?.guidedSurvey?.submitted ?? false
+  const guidedSurveyStep = activeSession?.guidedSurvey?.stepIndex ?? 0
+
+  const startGuidedSurvey = useCallback(
+    async (formUrl: string = UCI_FORM_URL) => {
+      let sessionId = activeSessionId
+      if (!sessionId) {
+        sessionId = await createSession()
+      }
+      if (!sessionId) return
+
+      patchSessionById(sessionId, (s) => ({
+        ...s,
+        title: UCI_FORM_TITLE.slice(0, 48),
+        messages: introMessages(),
+        guidedSurvey: {
+          formUrl,
+          answers: s.guidedSurvey?.answers ?? {},
+          active: true,
+          stepIndex: 0,
+        },
+      }))
+    },
+    [activeSessionId, createSession, patchSessionById],
+  )
+
+  const exitGuidedSurvey = useCallback(() => {
+    if (!activeSessionId || !activeSession?.guidedSurvey) return
+    patchActive((s) => ({
+      ...s,
+      guidedSurvey: {
+        ...s.guidedSurvey!,
+        active: false,
+      },
+      messages: [
+        ...s.messages,
+        surveyMsg(
+          'assistant',
+          'Survey paused. Your questions and answers are saved in this chat — scroll up anytime to review.',
+        ),
+      ],
+    }))
+  }, [activeSessionId, activeSession?.guidedSurvey, patchActive])
+
+  const resumeGuidedSurvey = useCallback(() => {
+    if (!activeSessionId || !activeSession?.guidedSurvey) return
+    const gs = activeSession.guidedSurvey
+    if (gs.submitted) return
+
+    if (gs.stepIndex >= GUIDED_TOTAL && Object.keys(gs.answers).length > 0) {
+      const summary = buildSummary(gs.answers)
+      patchActive((s) => ({
+        ...s,
+        guidedSurvey: {
+          ...gs,
+          active: true,
+          awaitingSubmitConfirm: true,
+        },
+        messages: [
+          ...s.messages,
+          surveyMsg('assistant', buildSubmitConfirmPrompt(summary)),
+        ],
+      }))
+      return
+    }
+
+    const step = Math.min(gs.stepIndex, GUIDED_TOTAL - 1)
+    patchActive((s) => ({
+      ...s,
+      guidedSurvey: { ...gs, active: true, stepIndex: step, awaitingSubmitConfirm: false },
+      messages: [
+        ...s.messages,
+        surveyMsg(
+          'assistant',
+          formatQuestion(GUIDED_QUESTIONS[step], step, GUIDED_TOTAL),
+        ),
+      ],
+    }))
+  }, [activeSessionId, activeSession?.guidedSurvey, patchActive])
+
+  const submitGuidedSurveyAnswer = useCallback(
+    (raw: string) => {
+      if (!activeSessionId || !activeSession?.guidedSurvey?.active) return
+
+      const text = raw.trim()
+      if (!text) return
+
+      const gs = activeSession.guidedSurvey
+
+      if (gs.awaitingSubmitConfirm) {
+        const choice = normalizeYesNo(text)
+        if (!choice) {
+          patchActive((s) => ({
+            ...s,
+            messages: [
+              ...s.messages,
+              surveyMsg('user', text),
+              surveyMsg('assistant', 'Please reply Yes to submit the form, or No to skip.'),
+            ],
+          }))
+          return
+        }
+
+        if (choice === 'No') {
+          patchActive((s) => ({
+            ...s,
+            guidedSurvey: {
+              ...s.guidedSurvey!,
+              active: false,
+              awaitingSubmitConfirm: false,
+            },
+            messages: [
+              ...s.messages,
+              surveyMsg('user', text),
+              surveyMsg(
+                'assistant',
+                'No problem — your answers stay saved in this chat. Scroll up to review anytime, or press Continue survey if you want to submit later.',
+              ),
+            ],
+          }))
+          return
+        }
+
+        patchActive((s) => ({
+          ...s,
+          guidedSurvey: {
+            ...s.guidedSurvey!,
+            active: false,
+            submitted: true,
+            awaitingSubmitConfirm: false,
+          },
+          messages: [
+            ...s.messages,
+            surveyMsg('user', text),
+            surveyMsg('assistant', 'Form submitted.'),
+          ],
+        }))
+        return
+      }
+
+      const stepIndex = gs.stepIndex
+      const currentQuestion = GUIDED_QUESTIONS[stepIndex]
+      if (!currentQuestion) return
+
+      const answers = { ...gs.answers }
+
+      let accepted: string | null = text
+      if (currentQuestion.type === 'yesno') {
+        accepted = normalizeYesNo(text)
+        if (!accepted) {
+          patchActive((s) => ({
+            ...s,
+            messages: [
+              ...s.messages,
+              surveyMsg('user', text),
+              surveyMsg('assistant', 'Please answer Yes or No.'),
+            ],
+          }))
+          return
+        }
+      } else if (currentQuestion.type === 'scale') {
+        accepted = normalizeScale(text)
+        if (!accepted) {
+          patchActive((s) => ({
+            ...s,
+            messages: [
+              ...s.messages,
+              surveyMsg('user', text),
+              surveyMsg('assistant', 'Please reply with a number from 1 to 5.'),
+            ],
+          }))
+          return
+        }
+      } else if (currentQuestion.type === 'choice' && currentQuestion.options) {
+        accepted = normalizeChoice(text, currentQuestion.options)
+        if (!accepted) {
+          patchActive((s) => ({
+            ...s,
+            messages: [
+              ...s.messages,
+              surveyMsg('user', text),
+              surveyMsg(
+                'assistant',
+                'Please pick one of the listed options (type it as shown).',
+              ),
+            ],
+          }))
+          return
+        }
+      } else if (!currentQuestion.required && text.toLowerCase() === 'skip') {
+        accepted = '(skipped)'
+      }
+
+      answers[currentQuestion.id] = accepted!
+      const nextIndex = stepIndex + 1
+
+      if (nextIndex >= GUIDED_TOTAL) {
+        const summary = buildSummary(answers)
+        patchActive((s) => ({
+          ...s,
+          messages: [
+            ...s.messages,
+            surveyMsg('user', text),
+            surveyMsg('assistant', formatAnswerRecord(currentQuestion, accepted!)),
+            surveyMsg('assistant', buildSubmitConfirmPrompt(summary)),
+          ],
+          guidedSurvey: {
+            ...s.guidedSurvey!,
+            answers,
+            active: true,
+            stepIndex: GUIDED_TOTAL,
+            awaitingSubmitConfirm: true,
+          },
+        }))
+        return
+      }
+
+      const nextQ = GUIDED_QUESTIONS[nextIndex]
+      patchActive((s) => ({
+        ...s,
+        messages: [
+          ...s.messages,
+          surveyMsg('user', text),
+          surveyMsg('assistant', formatAnswerRecord(currentQuestion, accepted!)),
+          surveyMsg('assistant', formatQuestion(nextQ, nextIndex, GUIDED_TOTAL)),
+        ],
+        guidedSurvey: {
+          ...s.guidedSurvey!,
+          answers,
+          stepIndex: nextIndex,
+        },
+      }))
+    },
+    [activeSession, activeSessionId, patchActive],
+  )
+
   const confirmSubmit = useCallback(async () => {
     if (!activeSessionId) return
     const formId = activeSession?.simplifiedUi?.formReferenceId
@@ -545,6 +937,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       deleteSession,
       renameSession,
       sendMessage,
+      openPreviewUrl,
       updateFieldValue,
       goToStep,
       undoLastChange,
@@ -554,15 +947,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSandboxMinimized: (minimized: boolean) =>
         patchActive((s) => ({ ...s, sandbox: { ...s.sandbox, minimized } })),
       refreshSandbox: () => {
+        const url = activeSession?.sandbox.url
+        if (activeSessionId && activeSession?.sandbox.showPreview && url) {
+          void openPreviewUrl(url)
+          return
+        }
         if (activeSessionId) {
           void postSandboxEvent(
             { type: 'scroll', payload: { refresh: true } },
             activeSessionId,
           )
-          void loadChatFromBackend(activeSessionId)
         }
       },
       confirmSubmit,
+      isCreatingSession,
+      guidedSurveyActive,
+      guidedSurveyAwaitingSubmit,
+      guidedSurveySubmitted,
+      guidedSurveyStep,
+      guidedSurveyTotal: GUIDED_TOTAL,
+      startGuidedSurvey,
+      submitGuidedSurveyAnswer,
+      exitGuidedSurvey,
+      resumeGuidedSurvey,
     }),
     [
       sessions,
@@ -571,12 +978,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       apiStatus,
       activeSession,
       isAgentBusy,
+      isCreatingSession,
       activeFieldId,
       createSession,
       selectSession,
       deleteSession,
       renameSession,
       sendMessage,
+      openPreviewUrl,
       updateFieldValue,
       goToStep,
       undoLastChange,
@@ -584,6 +993,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       patchActive,
       loadChatFromBackend,
       confirmSubmit,
+      guidedSurveyActive,
+      guidedSurveyAwaitingSubmit,
+      guidedSurveySubmitted,
+      guidedSurveyStep,
+      startGuidedSurvey,
+      submitGuidedSurveyAnswer,
+      exitGuidedSurvey,
+      resumeGuidedSurvey,
     ],
   )
 
