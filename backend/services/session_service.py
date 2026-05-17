@@ -24,7 +24,6 @@ class PageMeta:
 
 class SessionService:
 	def __init__(self):
-		self._agents: dict[UUID4, Agent] = {}
 		self._contexts: dict[UUID4, BrowserContext] = {}
 		self._pages: dict[UUID4, dict[UUID4, Page]] = {}
 		self._page_order: dict[UUID4, list[UUID4]] = {}
@@ -48,29 +47,22 @@ class SessionService:
 		if self._playwright is not None:
 			await self._playwright.stop()
 
-	def get_session_agent(self, session_id: UUID4) -> Agent | None:
-		return self._agents.get(session_id)
-
 	def has_session(self, session_id: UUID4) -> bool:
-		return session_id in self._agents
+		return session_id in self._contexts
 
 	async def create_new_session(self, start_url: str = "about:blank") -> UUID4:
 		session_id = uuid.uuid4()
 		if self._browser is None:
 			raise RuntimeError("SessionService.start() must be called before create_new_session().")
 
-		context = await self._browser.new_context(viewport=ViewportSize(width=1280, height=720))
+		context = await self._browser.new_context(viewport={
+			"width": 1280,
+			"height": 720,
+		})
 		page = await context.new_page()
 		await page.goto(start_url)
 
-		agent = Agent(
-			task="Wait for the user's first request.",
-			llm=self._llm,
-			page=page,
-		)
-
 		page_id = uuid.uuid4()
-		self._agents[session_id] = agent
 		self._contexts[session_id] = context
 		self._pages[session_id] = {page_id: page}
 		self._page_order[session_id] = [page_id]
@@ -81,16 +73,10 @@ class SessionService:
 		return self._contexts.get(session_id)
 
 	async def expire_session(self, session_id: UUID4) -> None:
-		agent = self._agents.pop(session_id, None)
 		context = self._contexts.pop(session_id, None)
 		self._pages.pop(session_id, None)
 		self._page_order.pop(session_id, None)
 		self._active_page_id.pop(session_id, None)
-		if agent is not None:
-			try:
-				await agent.close()
-			except Exception:
-				pass
 		if context is not None:
 			await context.close()
 
@@ -127,14 +113,11 @@ class SessionService:
 
 	async def set_active_page(self, session_id: UUID4, page_id: UUID4) -> PageMeta:
 		pages_map = self._pages.get(session_id)
-		agent = self._agents.get(session_id)
 		if pages_map is None or page_id not in pages_map:
 			raise KeyError(f"Unknown page {page_id} in session {session_id}")
 
 		page = pages_map[page_id]
 		await page.bring_to_front()
-		if agent is not None:
-			agent.page = page
 		self._active_page_id[session_id] = page_id
 		return await self._page_meta(session_id, page_id, page)
 
@@ -171,13 +154,6 @@ class SessionService:
 			"title": await page.title() if page else None,
 		}
 
-	async def process_user_input(self, session_id: UUID4, user_input: str) -> dict:
-		agent = self._agents.get(session_id)
-		if agent is None:
-			raise KeyError(f"Unknown session: {session_id}")
-		agent.task = user_input
-		result = await agent.run()
-		return {"result": str(result)}
 
 
 session_service = SessionService()

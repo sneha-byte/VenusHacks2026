@@ -216,17 +216,11 @@ class ListResponse(UIBase):
     items: List[ListItem]
 
 
-class ConversationMessage(BaseModel):
-    # One message in a conversation-style UI response.
-    role: Literal["user", "assistant", "system"]
-    message: str
-    timestamp: datetime = Field(default_factory=datetime.now)
-
-
 class ConversationResponse(UIBase):
     # A grouped conversation block when the frontend should show message history.
     type: Literal[UIResponseType.conversation]
-    messages: List[ConversationMessage]
+    role: Literal["user", "assistant", "system"]
+    message: str
 
 
 class ConfirmationResponse(UIBase):
