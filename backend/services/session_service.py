@@ -156,7 +156,6 @@ class SessionService:
 		if context is None:
 			raise KeyError(f"Unknown session: {session_id}")
 
-		page: Page | None = None
 		if page_index is not None and 0 <= page_index < len(context.pages):
 			page = context.pages[page_index]
 		else:
