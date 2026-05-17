@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-const STORAGE_KEY = 'clearpath-sidebar-width'
+const STORAGE_KEY = 'browzen-sidebar-width'
 const MIN_WIDTH = 200
 const MAX_WIDTH = 520
 const DEFAULT_WIDTH = 260

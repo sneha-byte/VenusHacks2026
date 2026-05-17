@@ -10,7 +10,7 @@ export function useSandboxBrowser(sessionId?: string) {
       if (!sessionId) return
       await postSandboxEvent(event, sessionId)
       frameRef.current?.contentWindow?.postMessage(
-        { source: 'clearpath', event },
+        { source: 'browzen', event },
         '*',
       )
     },

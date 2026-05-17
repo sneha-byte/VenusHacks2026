@@ -10,7 +10,7 @@ import {
 import { speakText } from '../lib/speech'
 import type { AccessibilityProfile } from '../types'
 
-const STORAGE_KEY = 'clearpath-accessibility'
+const STORAGE_KEY = 'browzen-accessibility'
 
 export const defaultAccessibilityProfile: AccessibilityProfile = {
   largeText: false,
@@ -50,7 +50,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     return defaultAccessibilityProfile
   })
   const [onboardingComplete, setOnboardingComplete] = useState(
-    () => localStorage.getItem('clearpath-onboarded') === 'true',
+    () => localStorage.getItem('browzen-onboarded') === 'true',
   )
 
   useEffect(() => {
@@ -98,7 +98,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
 
   const completeOnboarding = useCallback((value: boolean) => {
     setOnboardingComplete(value)
-    if (value) localStorage.setItem('clearpath-onboarded', 'true')
+    if (value) localStorage.setItem('browzen-onboarded', 'true')
   }, [])
 
   const value = useMemo(

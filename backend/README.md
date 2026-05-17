@@ -1,6 +1,6 @@
-# ClearPath Backend
+# Browzen Backend
 
-FastAPI backend for ClearPath. The backend defines the shared request/response
+FastAPI backend for Browzen. The backend defines the shared request/response
 models, stores user and chat session state in Redis, and will host the browser
 agent orchestration layer.
 

@@ -41,8 +41,8 @@ async def lifespan(_):
 
 
 app = FastAPI(
-	title="ClearPath API",
-	description="Backend AI orchestration layer for ClearPath.",
+	title="Browzen API",
+	description="Backend AI orchestration layer for Browzen.",
 	version="0.1.0",
 	lifespan=lifespan,
 )

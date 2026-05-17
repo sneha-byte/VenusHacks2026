@@ -17,9 +17,9 @@ Built for Venus Hacks 2026.
 - Stores user/session state in Redis.
 - Supports accessibility preferences such as high contrast, dyslexia-friendly fonts, text scaling, and voice-oriented interaction.
 - `backend/` — FastAPI + browser-use agent, sessions, sandbox
-- `frontend/` — ClearPath React web app (onboarding, chat, simplified UI, sandbox preview)
+- `frontend/` — Browzen React web app (onboarding, chat, simplified UI, sandbox preview)
 
-## Web frontend (ClearPath)
+## Web frontend (Browzen)
 
 ## Project Structure
 

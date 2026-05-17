@@ -1,4 +1,4 @@
-import styles from './ClearPathLogo.module.css'
+import styles from './BrowzenLogo.module.css'
 
 type Props = {
   size?: number
@@ -7,9 +7,9 @@ type Props = {
 }
 
 /** Browser window + simplified form lines + check */
-export function ClearPathLogo({ size = 48, showWordmark = false, variant = 'dark' }: Props) {
+export function BrowzenLogo({ size = 48, showWordmark = false, variant = 'dark' }: Props) {
   return (
-    <div className={styles.brand} aria-label="ClearPath">
+    <div className={styles.brand} aria-label="Browzen">
       <svg
         className={styles.mark}
         width={size}
@@ -45,7 +45,7 @@ export function ClearPathLogo({ size = 48, showWordmark = false, variant = 'dark
       </svg>
       {showWordmark && (
         <span className={variant === 'light' ? styles.wordmarkLight : styles.wordmark}>
-          ClearPath
+          Browzen
         </span>
       )}
     </div>

@@ -52,9 +52,9 @@ import {
 } from '../lib/guidedSurveyLogic'
 
 const STORAGE = {
-  sessions: 'clearpath-sessions-v4',
-  active: 'clearpath-active-session',
-  user: 'clearpath-user-session-id',
+  sessions: 'browzen-sessions-v4',
+  active: 'browzen-active-session',
+  user: 'browzen-user-session-id',
 } as const
 
 const emptySandbox = (): SandboxSession => ({

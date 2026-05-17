@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from '../../context/SessionContext'
 import type { ChatSession } from '../../types'
-import { ClearPathLogo } from '../brand/ClearPathLogo'
+import { BrowzenLogo } from '../brand/BrowzenLogo'
 import { PenIcon, TrashIcon } from './SessionIcons'
 import styles from './SessionSidebar.module.css'
 
@@ -35,7 +35,7 @@ export function SessionSidebar({ width, onNewChat }: Props) {
       aria-label="Chat sessions"
     >
       <div className={styles.brand}>
-        <ClearPathLogo size={36} showWordmark variant="light" />
+        <BrowzenLogo size={36} showWordmark variant="light" />
       </div>
 
       <button
