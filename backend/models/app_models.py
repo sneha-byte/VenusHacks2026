@@ -63,9 +63,9 @@ class FormUpdateIntent(BaseModel):
     form_field_new_value: List[FormField]
 
 #user clicked submit 
-class UserSubmitForm(BaseModel):
-    # Id of the simplified form being submitted.
-    reference_id: UUID4
+class FormSubmissionRequest(BaseModel):
+    session_id: UUID4
+    form_reference_id: UUID4
 
 
 # Ai's understanding of user intent, which can be either app control, website interaction, or form update
