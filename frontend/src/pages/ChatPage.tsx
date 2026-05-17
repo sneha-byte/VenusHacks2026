@@ -34,12 +34,6 @@ export function ChatPage() {
   const activeSession = sessions.find((s) => s.id === activeSessionId)
 
   useEffect(() => {
-    if (!activeSessionId && sessions.length === 0 && apiStatus !== 'connecting') {
-      void createSession()
-    }
-  }, [activeSessionId, sessions.length, createSession, apiStatus])
-
-  useEffect(() => {
     if (editingHeaderTitle) {
       headerInputRef.current?.focus()
       headerInputRef.current?.select()
@@ -135,7 +129,7 @@ export function ChatPage() {
           {apiStatus === 'connecting' && 'Connecting to session API…'}
           {apiStatus === 'offline' && 'Backend offline — using local chats only'}
           {apiStatus === 'error' &&
-            'Session API error — start backend (port 8000), then click Retry'}
+            'Session API error — start backend + Redis, then click Retry'}
           {apiStatus === 'idle' && 'Session API idle'}
           {(apiStatus === 'offline' || apiStatus === 'error') && (
             <button type="button" className={styles.apiRetry} onClick={() => void syncWithBackend()}>

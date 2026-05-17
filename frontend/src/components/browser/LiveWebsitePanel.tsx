@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSession } from '../../context/SessionContext'
-import { getSandboxStreamUrl } from '../../api/client'
+import { sandboxStreamUrl } from '../../api/backend'
 import { ActionLog } from './ActionLog'
 import { SafetyConfirmation } from './SafetyConfirmation'
 import styles from './LiveWebsitePanel.module.css'
@@ -31,7 +31,7 @@ export function LiveWebsitePanel() {
     pages.find((p) => p.id === sandbox.activePageId)
   const streamBase =
     sandbox.streamUrl ??
-    (activeSessionId && hasPages ? getSandboxStreamUrl(activeSessionId) : undefined)
+    (activeSessionId && hasPages ? sandboxStreamUrl(activeSessionId) : undefined)
   const streamSrc = streamBase
     ? `${streamBase}${streamBase.includes('?') ? '&' : '?'}t=${streamTick}`
     : undefined

@@ -47,6 +47,7 @@ export function OnboardingPage() {
     useAccessibility()
   const { createSession } = useSession()
   const [selectedNeeds, setSelectedNeeds] = useState<string[]>(profile.needs)
+  const [starting, setStarting] = useState(false)
 
   const toggleNeed = (id: string) => {
     setSelectedNeeds((prev) => {
@@ -60,9 +61,19 @@ export function OnboardingPage() {
   }
 
   const finish = async () => {
-    await createSession()
-    setOnboardingComplete(true)
-    navigate('/app')
+    if (starting) return
+    setStarting(true)
+    try {
+      await createSession()
+      setOnboardingComplete(true)
+      navigate('/app')
+    } catch {
+      /* SessionContext sets apiStatus; user can retry from chat after fixing Redis */
+      setOnboardingComplete(true)
+      navigate('/app')
+    } finally {
+      setStarting(false)
+    }
   }
 
   const scrollToSetup = () => {

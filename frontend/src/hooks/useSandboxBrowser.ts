@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react'
-import { sendBrowserEvent } from '../api/client'
+import { postSandboxEvent } from '../api/backend'
 import type { BrowserEvent } from '../types'
 
 export function useSandboxBrowser(sessionId?: string) {
@@ -8,7 +8,7 @@ export function useSandboxBrowser(sessionId?: string) {
   const relayEvent = useCallback(
     async (event: BrowserEvent) => {
       if (!sessionId) return
-      await sendBrowserEvent(event, sessionId)
+      await postSandboxEvent(event, sessionId)
       frameRef.current?.contentWindow?.postMessage(
         { source: 'clearpath', event },
         '*',
