@@ -86,7 +86,7 @@ async def delete_message_session(
 	user_session_id: UUID4 = Query(..., description="User session id"),
 	chat_session_id: UUID4 = Query(..., description="Chat session id"),
 ) -> bool:
-	await redis_service.delete_chat_messages(chat_session_id)
+	await redis_service.delete_chat_messages(user_session_id, chat_session_id)
 	await redis_service.delete_chat_session(user_session_id, chat_session_id)
 	try:
 		await session_service.expire_session(chat_session_id)
@@ -120,4 +120,4 @@ async def get_message_details(
 	]
 
 	messages = await redis_service.get_chat_messages(session_id)
-	return GetChatDetailsResponse(page_urls=pages, chat_session_states=messages)
+	return GetChatDetailsResponse(page_urls=pages, chat_session_states=messages or [])

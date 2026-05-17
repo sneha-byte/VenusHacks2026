@@ -36,7 +36,6 @@ class SessionService:
 		self._playwright = await async_playwright().start()
 		self._browser = await self._playwright.chromium.launch(
 			headless=True,
-			args=["--no-sandbox"],
 		)
 
 	async def stop(self):

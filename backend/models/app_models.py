@@ -2,32 +2,37 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Union, Optional, Literal
 from uuid import uuid4
+
 from pydantic import BaseModel, UUID4, Field
 
 
-#user inputs text query in the app
+# user inputs text query in the app
 class UserQuery(BaseModel):
-    # Raw natural-language request typed or spoken by the user.
-    query: str
-    session_id: UUID4
+    query: str = Field(
+        description="Raw natural-language request typed or spoken by the user."
+    )
+    session_id: UUID4 = Field(
+        description="Unique chat/browser session identifier associated with the request."
+    )
 
 
-# High Level user Intent Domain such as open settings click renew 
+# High Level user Intent Domain such as open settings click renew
 class IntentDomain(str, Enum):
-    # Top-level bucket that decides which service should handle the request.
     APP = "app"              # Control your application
     WEBSITE = "website"      # Interact with webpage content
     FORM = "form"
     INVALID = "invalid"
 
+
 # Invalid intent
 class InvalidIntent(BaseModel):
-    # Human-readable explanation of why the request could not be classified.
-    reason: str
+    reason: str = Field(
+        description="Human-readable explanation of why the request could not be classified."
+    )
+
 
 # app intent types such as switch tab, open settings, minimize browser
 class AppIntentTypes(str, Enum):
-    # Actions that affect our app shell instead of the website inside the browser.
     SWITCH_TAB = "switch_conversation_tab"
     DELETE_CONVERSATION = "delete_conversation"
     CREATE_CONVERSATION = "create_conversation"
@@ -35,16 +40,20 @@ class AppIntentTypes(str, Enum):
     MINIMIZE = "minimize_browser"
     OPEN_SETTINGS = "open_settings"
 
-#specific app intent info such as open_settings
-class AppIntent(BaseModel):
-    # App command the session/app layer should execute.
-    type: AppIntentTypes
-    # Target id for commands that operate on a specific session or UI object.
-    id: UUID4 | None = None
 
-#browser intent types such as click, type, select, submit, search, scroll, navigate
+# specific app intent info such as open_settings
+class AppIntent(BaseModel):
+    type: AppIntentTypes = Field(
+        description="App command the session/app layer should execute."
+    )
+    id: UUID4 | None = Field(
+        default=None,
+        description="Target id for commands that operate on a specific session or UI object."
+    )
+
+
+# browser intent types such as click, type, select, submit, search, scroll, navigate
 class WebsiteIntent(str, Enum):
-    # Actions browser-use can perform against the actual website.
     CLICK = "click"
     TYPE = "type"
     SELECT = "select"
@@ -55,44 +64,57 @@ class WebsiteIntent(str, Enum):
     UPDATE_FORM = "update_form"
 
 
-# user intent when they want to update a form field value, such as change date to 12/12/2024, or change slider value to 5
+# user intent when they want to update a form field value
 class FormUpdateIntent(BaseModel):
-    # Id of the simplified form the user wants to change.
-    form_reference_id: UUID4 = Field
-    # Field types involved in the update. The natural-language query still carries the exact new value.
-    form_field_new_value: List[FormField]
+    form_reference_id: UUID4 = Field(
+        description="Id of the simplified form the user wants to change."
+    )
+    form_field_new_value: List["FormField"] = Field(
+        description="Updated form field values extracted from the user request."
+    )
 
-#user clicked submit 
+
+# user clicked submit
 class FormSubmissionRequest(BaseModel):
-    session_id: UUID4
-    form_reference_id: UUID4
+    session_id: UUID4 = Field(
+        description="Chat/browser session associated with the form submission."
+    )
+    form_reference_id: UUID4 = Field(
+        description="Identifier of the simplified form being submitted."
+    )
 
 
-# Ai's understanding of user intent, which can be either app control, website interaction, or form update
+# AI's understanding of user intent
 class ParsedIntent(BaseModel):
-    # Domain determines whether app/session code, form code, or browser-use should handle it.
-    domain: IntentDomain
-    # Specific action payload for the selected domain.
-    intent: Union[AppIntent, WebsiteIntent, FormUpdateIntent, InvalidIntent]
+    domain: IntentDomain = Field(
+        description="Domain that determines which subsystem should handle the request."
+    )
+    intent: Union[AppIntent, WebsiteIntent, FormUpdateIntent, InvalidIntent] = Field(
+        description="Specific action payload for the selected domain."
+    )
 
 
-# update user state with new ui state such as accessibility options, or new chat session, or onboarding completion
+# update user state with new ui state
 class UpdateUserStateRequest(BaseModel):
-    # User session being updated.
-    session_id: UUID4
-    # Full replacement state for that user session.
-    new_user_state: UserState
+    session_id: UUID4 = Field(
+        description="User session being updated."
+    )
+    new_user_state: "UserState" = Field(
+        description="Full replacement state for the user session."
+    )
 
-# update ui in current chat session 
+
+# update ui in current chat session
 class UpdateSessionStateRequest(BaseModel):
-    # Chat/session id whose UI state should receive this update.
-    session_id: UUID4
-    # New simplified UI block to store and render.
-    new_ui_state: UIResponse
+    session_id: UUID4 = Field(
+        description="Chat/session id whose UI state should receive this update."
+    )
+    new_ui_state: "UIResponse" = Field(
+        description="New simplified UI block to store and render."
+    )
 
 
 class UIResponseType(str, Enum):
-    # Values used by the frontend to decide which simplified UI component to render.
     form = "form"
     markdown = "markdown"
     list = "list"
@@ -101,7 +123,6 @@ class UIResponseType(str, Enum):
 
 
 class FormFieldType(str, Enum):
-    # Field types that browser-use can extract from real website forms.
     text = "text"
     number = "number"
     date = "date"
@@ -111,70 +132,123 @@ class FormFieldType(str, Enum):
 
 
 class UIBase(BaseModel):
-    # Every UI object gets an id so it can be stored, updated, or referenced later.
-    id: UUID4 = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=datetime.now)
+    id: UUID4 = Field(
+        default_factory=uuid4,
+        description="Unique identifier for the UI object."
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        description="Timestamp indicating when the UI object was created."
+    )
 
 
 class FormOption(BaseModel):
-    # A selectable option for radio and multiselect form fields.
-    label: str
-    value: str
+    label: str = Field(
+        description="Human-readable option label shown in the frontend."
+    )
+    value: str = Field(
+        description="Underlying value submitted back to the browser workflow."
+    )
 
 
 class BaseFormField(UIBase):
-    # Shared properties for all simplified form fields.
-    # name should map back to the real website field when browser-use can identify it.
-    name: str
-    label: str
-    required: bool = False
-    placeholder: Optional[str] = None
+    name: str = Field(
+        description="Internal field name mapped to the original website form field."
+    )
+    label: str = Field(
+        description="Human-readable label displayed to the user."
+    )
+    required: bool = Field(
+        default=False,
+        description="Whether the field must be completed before submission."
+    )
+    placeholder: Optional[str] = Field(
+        default=None,
+        description="Placeholder text displayed when the field has no value."
+    )
 
 
 class TextField(BaseFormField):
-    # Free-text input such as name, email, address, or a short answer.
-    type: Literal[FormFieldType.text]
-    value: Optional[str] = None
+    type: Literal[FormFieldType.text] = Field(
+        description="Discriminator identifying this as a text field."
+    )
+    value: Optional[str] = Field(
+        default=None,
+        description="Current text value entered by the user."
+    )
 
 
 class NumberField(BaseFormField):
-    # Numeric input with optional min/max constraints copied from the website.
-    type: Literal[FormFieldType.number]
-    value: Optional[float] = None
-    min_value: Optional[float] = None
-    max_value: Optional[float] = None
+    type: Literal[FormFieldType.number] = Field(
+        description="Discriminator identifying this as a number field."
+    )
+    value: Optional[float] = Field(
+        default=None,
+        description="Current numeric value entered by the user."
+    )
+    min_value: Optional[float] = Field(
+        default=None,
+        description="Minimum allowed numeric value."
+    )
+    max_value: Optional[float] = Field(
+        default=None,
+        description="Maximum allowed numeric value."
+    )
 
 
 class DateField(BaseFormField):
-    # Date input. datetime lets Pydantic validate date-like values consistently.
-    type: Literal[FormFieldType.date]
-    value: Optional[datetime] = None
+    type: Literal[FormFieldType.date] = Field(
+        description="Discriminator identifying this as a date field."
+    )
+    value: Optional[datetime] = Field(
+        default=None,
+        description="Selected date value."
+    )
 
 
 class RadioField(BaseFormField):
-    # Single-choice field where only one option value can be selected.
-    type: Literal[FormFieldType.radio]
-    options: List[FormOption]
-    selected: Optional[str] = None
+    type: Literal[FormFieldType.radio] = Field(
+        description="Discriminator identifying this as a radio field."
+    )
+    options: List[FormOption] = Field(
+        description="Available radio button options."
+    )
+    selected: Optional[str] = Field(
+        default=None,
+        description="Currently selected option value."
+    )
 
 
 class MultiSelectField(BaseFormField):
-    # Multi-choice field where multiple option values can be selected.
-    type: Literal[FormFieldType.multiselect]
-    options: List[FormOption]
-    selected: List[str] = Field(default_factory=list)
+    type: Literal[FormFieldType.multiselect] = Field(
+        description="Discriminator identifying this as a multiselect field."
+    )
+    options: List[FormOption] = Field(
+        description="Available selectable options."
+    )
+    selected: List[str] = Field(
+        default_factory=list,
+        description="Currently selected option values."
+    )
 
 
 class SliderField(BaseFormField):
-    # Range-like input displayed as a simpler slider in the frontend.
-    type: Literal[FormFieldType.slider]
-    min_value: int
-    max_value: int
-    value: Optional[int] = None
+    type: Literal[FormFieldType.slider] = Field(
+        description="Discriminator identifying this as a slider field."
+    )
+    min_value: int = Field(
+        description="Minimum slider value."
+    )
+    max_value: int = Field(
+        description="Maximum slider value."
+    )
+    value: Optional[int] = Field(
+        default=None,
+        description="Current slider value."
+    )
 
 
 FormField = Union[
-    # Any field inside a FormResponse must be one of these concrete field models.
     TextField,
     NumberField,
     DateField,
@@ -185,55 +259,106 @@ FormField = Union[
 
 
 class FormResponse(UIBase):
-    # Simplified version of a website form for the accessible frontend to render.
-    type: Literal[UIResponseType.form]
-    title: Optional[str] = None
-    description: Optional[str] = None
-    fields: List[FormField]
-    submitted: bool = False
-    is_next: bool = False
+    type: Literal[UIResponseType.form] = Field(
+        description="Discriminator identifying this as a form response."
+    )
+    title: Optional[str] = Field(
+        default=None,
+        description="Short title displayed above the form."
+    )
+    description: Optional[str] = Field(
+        default=None,
+        description="Additional context or instructions for the form."
+    )
+    fields: List[FormField] = Field(
+        description="List of simplified form fields rendered in the frontend."
+    )
+    submitted: bool = Field(
+        default=False,
+        description="Whether the form has already been submitted."
+    )
+    is_next: bool = Field(
+        default=False,
+        description="Whether this form represents the next step in a multi-step flow."
+    )
 
 
 class MarkdownResponse(UIBase):
-    # Plain content for summaries, explanations, errors, or fallback responses.
-    type: Literal[UIResponseType.markdown]
-    content: str
+    type: Literal[UIResponseType.markdown] = Field(
+        description="Discriminator identifying this as a markdown response."
+    )
+    content: str = Field(
+        description="Markdown content rendered directly in the frontend."
+    )
 
 
 class ListItem(BaseModel):
-    # One item in a list response, such as a search result, product, link, or option.
-    id: str
-    title: str
-    description: Optional[str] = None
-    url: Optional[str] = None
-    img_url: Optional[str] = None
+    id: str = Field(
+        description="Unique identifier for the list item."
+    )
+    title: str = Field(
+        description="Primary title displayed for the list item."
+    )
+    description: Optional[str] = Field(
+        default=None,
+        description="Secondary descriptive text for the list item."
+    )
+    url: Optional[str] = Field(
+        default=None,
+        description="Optional external or internal navigation URL."
+    )
+    img_url: Optional[str] = Field(
+        default=None,
+        description="Optional image preview URL associated with the item."
+    )
 
 
 class ListResponse(UIBase):
-    # A simplified list of choices or results extracted from a website.
-    type: Literal[UIResponseType.list]
-    title: Optional[str] = None
-    items: List[ListItem]
+    type: Literal[UIResponseType.list] = Field(
+        description="Discriminator identifying this as a list response."
+    )
+    title: Optional[str] = Field(
+        default=None,
+        description="Optional heading displayed above the list."
+    )
+    items: List[ListItem] = Field(
+        description="List of simplified result or option items."
+    )
 
 
 class ConversationResponse(UIBase):
-    # A grouped conversation block when the frontend should show message history.
-    type: Literal[UIResponseType.conversation]
-    role: Literal["user", "assistant", "system"]
-    message: str
+    type: Literal[UIResponseType.conversation] = Field(
+        description="Discriminator identifying this as a conversation response."
+    )
+    role: Literal["user", "assistant", "system"] = Field(
+        description="Message role used for rendering conversation history."
+    )
+    message: str = Field(
+        description="Conversation message content."
+    )
 
 
 class ConfirmationResponse(UIBase):
-    # Returned after a final action, such as submitting a form or completing a task.
-    type: Literal[UIResponseType.confirmation]
-    title: str
-    message: str
-    confirmation_document_url: Optional[str] = None
-    display_document_inline: bool = False
+    type: Literal[UIResponseType.confirmation] = Field(
+        description="Discriminator identifying this as a confirmation response."
+    )
+    title: str = Field(
+        description="Confirmation title shown to the user."
+    )
+    message: str = Field(
+        description="Confirmation details or completion summary."
+    )
+    confirmation_document_url: Optional[str] = Field(
+        default=None,
+        description="Optional downloadable confirmation document URL."
+    )
+    display_document_inline: bool = Field(
+        default=False,
+        description="Whether the confirmation document should be embedded inline."
+    )
 
 
 UIResponse = Union[
-    # Main frontend contract: every assistant/browser result should be one of these.
     FormResponse,
     MarkdownResponse,
     ListResponse,
@@ -243,38 +368,83 @@ UIResponse = Union[
 
 
 class AgentResponse(BaseModel):
-    response_type: UIResponseType
-    response: UIResponse
+    response_type: UIResponseType = Field(
+        description="Frontend response type discriminator."
+    )
+    response: UIResponse = Field(
+        description="Rendered UI response payload."
+    )
 
 
 class ChatSessionState(BaseModel):
-    # One chat/browser session id. Redis can use this id for per-session UI state.
-    id: UUID4 = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=datetime.now)
-    chat_name: Optional[str] = None
-    ui_states: List[UIResponse] = Field(default_factory=list)
+    id: UUID4 = Field(
+        default_factory=uuid4,
+        description="Unique identifier for the chat/browser session."
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        description="Timestamp when the session was created."
+    )
+    chat_name: Optional[str] = Field(
+        default=None,
+        description="User-visible name for the chat session."
+    )
+    ui_states: List[UIResponse] = Field(
+        default_factory=list,
+        description="Chronological history of simplified UI states."
+    )
 
 
 class AccessibilityOptions(BaseModel):
-    dark_mode: bool = False
-    high_contrast: bool = False
-    dyslexia_friendly: bool = False
-    full_voice: bool = False
-
-    text_scaling: float = 1.0
+    dark_mode: bool = Field(
+        default=False,
+        description="Whether dark mode is enabled."
+    )
+    high_contrast: bool = Field(
+        default=False,
+        description="Whether high contrast mode is enabled."
+    )
+    dyslexia_friendly: bool = Field(
+        default=False,
+        description="Whether dyslexia-friendly typography is enabled."
+    )
+    full_voice: bool = Field(
+        default=False,
+        description="Whether full voice interaction is enabled."
+    )
+    text_scaling: float = Field(
+        default=1.0,
+        description="Global frontend text scaling multiplier."
+    )
 
 
 class UserState(BaseModel):
-    id: UUID4 = Field(default_factory=uuid4)
-    onboarded: bool = False
-    # Store chat ids separately from chat contents so user metadata stays small.
-    chat_session_ids: List[UUID4] = Field(default_factory=list)
-    accessibility_options: AccessibilityOptions = Field(default_factory=AccessibilityOptions)
+    id: UUID4 = Field(
+        default_factory=uuid4,
+        description="Unique identifier for the user."
+    )
+    onboarded: bool = Field(
+        default=False,
+        description="Whether the onboarding flow has been completed."
+    )
+    chat_session_ids: List[UUID4] = Field(
+        default_factory=list,
+        description="List of associated chat session identifiers."
+    )
+    accessibility_options: AccessibilityOptions = Field(
+        default_factory=AccessibilityOptions,
+        description="Accessibility preferences for the user."
+    )
 
 
 class GetChatDetailsResponse(BaseModel):
-    page_urls: List[str] = Field(default_factory=list)
-    chat_session_states: List[ChatSessionState]
+    page_urls: List[str] = Field(
+        default_factory=list,
+        description="Visited or associated page URLs for the session."
+    )
+    chat_session_states: List[ChatSessionState] = Field(
+        description="Detailed state for each chat session."
+    )
 
 
 class ChatResponseType(str, Enum):
@@ -284,6 +454,9 @@ class ChatResponseType(str, Enum):
 
 
 class ChatResponse(BaseModel):
-    response_type: ChatResponseType
-    response: Union[UIBase, AppIntent]
-
+    response_type: ChatResponseType = Field(
+        description="Top-level response category returned to the frontend."
+    )
+    response: Union[UIBase, AppIntent] = Field(
+        description="Payload associated with the response type."
+    )

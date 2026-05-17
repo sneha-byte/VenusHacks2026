@@ -36,10 +36,8 @@ class BrowserUseService:
         
         If the user's query is irrelevant to the browser, return an INVALID intent.
         
-        Return JSON only. Do not wrap it in markdown.
-        
-        Schema of the output object:
-        {ParsedIntent.model_json_schema()}
+        Only return the type="FORM" for the intent domain if the user's is trying to fill in information
+        on a form that exists in the UI state. If the user's trying to find a form, return the type="website" intent.
         """
 
 		user_input = f"""
@@ -98,12 +96,17 @@ class BrowserUseService:
 	        You are controlling a browser for an accessible web assistant.
 
 	        {f'User request: {user_query.query}' if user_query else ''}
+	        
 
 	        Parsed intent:
 	        {intent.model_dump_json(indent=2)}
 
 	        Recent UI state:
 	        {messages[-MAX_CONTEXT_WINDOW:] if messages else []}
+	        
+	        Actions:
+	        1. Navigate to the relevant websites. If you are not sure which website to navigate to, return a ConversationResponse.
+	        2. Perform the relevant actions on the website.
 
         """
 		return await self._run_agent_task(task, context)
