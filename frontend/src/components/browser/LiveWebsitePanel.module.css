@@ -13,6 +13,63 @@
   overflow: hidden;
 }
 
+.previewLayout {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+}
+
+.previewMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pageTabs {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0 0.75rem 0.75rem;
+  width: 3.25rem;
+}
+
+.pageTab {
+  width: 2.5rem;
+  height: 2.75rem;
+  border: 2px solid var(--color-jet-black);
+  border-radius: var(--radius-md);
+  padding: 0;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.pageTabActive {
+  opacity: 1;
+  outline: 3px solid var(--color-jet-black);
+  outline-offset: 2px;
+}
+
+.pageTabLabel {
+  line-height: 1;
+}
+
+.streamFrame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  object-fit: contain;
+  object-position: top center;
+  background: #fff;
+}
+
 .empty {
   flex: 1;
   min-height: 0;

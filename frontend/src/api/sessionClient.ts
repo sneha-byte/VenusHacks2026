@@ -62,6 +62,20 @@ export async function deleteMessageSession(
   return parseJson(res)
 }
 
+export type ChatSessionDetailDto = {
+  page_urls: string[]
+  chat_session_states: unknown[]
+}
+
+export async function getChatSessionDetail(
+  chatSessionId: string,
+): Promise<ChatSessionDetailDto> {
+  const res = await fetch(
+    `${API_BASE}/session/chat-session-detail?session_id=${encodeURIComponent(chatSessionId)}`,
+  )
+  return parseJson(res)
+}
+
 export async function checkBackendHealth(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/health`)

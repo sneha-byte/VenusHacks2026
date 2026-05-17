@@ -1,8 +1,16 @@
+import { useEffect, useState } from 'react'
 import { useSession } from '../../context/SessionContext'
-import { useSandboxBrowser } from '../../hooks/useSandboxBrowser'
+import { getSandboxStreamUrl } from '../../api/client'
 import { ActionLog } from './ActionLog'
 import { SafetyConfirmation } from './SafetyConfirmation'
 import styles from './LiveWebsitePanel.module.css'
+
+const TAB_COLORS = [
+  'var(--color-blush-rose)',
+  'var(--color-ivory)',
+  'var(--color-dry-sage)',
+  'var(--color-jet-black)',
+]
 
 export function LiveWebsitePanel() {
   const {
@@ -13,72 +21,141 @@ export function LiveWebsitePanel() {
     refreshSandbox,
     activeSessionId,
   } = useSession()
-  const { frameRef } = useSandboxBrowser(activeSessionId ?? undefined)
 
-  const hasPreview = Boolean(sandbox.url || sandbox.streamUrl)
-  const frameSrc = sandbox.streamUrl ?? sandbox.url
+  const [streamTick, setStreamTick] = useState(0)
+  const pages = sandbox.pages ?? []
+  const hasPages = pages.length > 0
+  const hasPreview = Boolean(hasPages || sandbox.url || sandbox.streamUrl)
+  const activePage =
+    pages.find((p) => p.isActive) ??
+    pages.find((p) => p.id === sandbox.activePageId)
+  const streamBase =
+    sandbox.streamUrl ??
+    (activeSessionId && hasPages ? getSandboxStreamUrl(activeSessionId) : undefined)
+  const streamSrc = streamBase
+    ? `${streamBase}${streamBase.includes('?') ? '&' : '?'}t=${streamTick}`
+    : undefined
+  const frameSrc = !streamSrc ? sandbox.url : undefined
+
+  useEffect(() => {
+    if (!streamBase || sandbox.paused) return
+    const interval = window.setInterval(() => {
+      setStreamTick((t) => t + 1)
+    }, 2000)
+    return () => window.clearInterval(interval)
+  }, [streamBase, sandbox.paused])
 
   return (
     <aside className={styles.column} aria-label="Live website preview">
-      {hasPreview && frameSrc ? (
-        <>
-          <header className={styles.header}>
-            <div className={styles.headerText}>
-              <h2>Live website</h2>
-              {sandbox.contextLabel && (
-                <p className={`${styles.context} optional-chrome`}>{sandbox.contextLabel}</p>
-              )}
-              {sandbox.url && (
-                <p className={`${styles.url} optional-chrome`} title={sandbox.url}>
-                  {sandbox.url}
-                </p>
-              )}
-            </div>
-            <div className={`${styles.controls} optional-chrome`} role="toolbar" aria-label="Preview controls">
+      <div className={styles.previewLayout}>
+        {hasPages && (
+          <nav className={styles.pageTabs} aria-label="Open pages">
+            {pages.map((page, index) => (
               <button
+                key={page.id}
                 type="button"
-                onClick={() => setSandboxPaused(!sandbox.paused)}
-                aria-pressed={sandbox.paused}
+                className={`${styles.pageTab} ${page.isActive ? styles.pageTabActive : ''}`}
+                style={{
+                  background: TAB_COLORS[index % TAB_COLORS.length],
+                  color:
+                    index % TAB_COLORS.length === 3
+                      ? 'var(--color-ivory)'
+                      : 'var(--color-jet-black)',
+                }}
+                title={page.url}
+                aria-current={page.isActive ? 'true' : undefined}
+                disabled
               >
-                {sandbox.paused ? 'Resume' : 'Pause'}
+                <span className={styles.pageTabLabel}>
+                  {page.title.slice(0, 1).toUpperCase() || String(index + 1)}
+                </span>
               </button>
-              <button type="button" onClick={refreshSandbox}>
-                Refresh
-              </button>
-            </div>
-          </header>
+            ))}
+          </nav>
+        )}
 
-          <div className={styles.viewport}>
-            <iframe
-              ref={frameRef}
-              title="Live website — form filling preview"
-              src={frameSrc}
-              className={styles.frame}
-              sandbox="allow-scripts allow-same-origin allow-forms"
-            />
-            {sandbox.paused && (
-              <div className={styles.pausedOverlay} aria-live="polite">
-                Agent paused
+        <div className={styles.previewMain}>
+          {hasPreview ? (
+            <>
+              <header className={styles.header}>
+                <div className={styles.headerText}>
+                  <h2>Live website</h2>
+                  {(activePage?.title || sandbox.contextLabel) && (
+                    <p className={`${styles.context} optional-chrome`}>
+                      {activePage?.title ?? sandbox.contextLabel}
+                    </p>
+                  )}
+                  {(activePage?.url || sandbox.url) && (
+                    <p
+                      className={`${styles.url} optional-chrome`}
+                      title={activePage?.url ?? sandbox.url}
+                    >
+                      {activePage?.url ?? sandbox.url}
+                    </p>
+                  )}
+                </div>
+                <div
+                  className={`${styles.controls} optional-chrome`}
+                  role="toolbar"
+                  aria-label="Preview controls"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSandboxPaused(!sandbox.paused)}
+                    aria-pressed={sandbox.paused}
+                  >
+                    {sandbox.paused ? 'Resume' : 'Pause'}
+                  </button>
+                  <button type="button" onClick={refreshSandbox}>
+                    Refresh
+                  </button>
+                </div>
+              </header>
+
+              <div className={styles.viewport}>
+                {streamSrc ? (
+                  <img
+                    src={streamSrc}
+                    alt={
+                      activePage?.title
+                        ? `Live stream — ${activePage.title}`
+                        : 'Live browser stream'
+                    }
+                    className={styles.streamFrame}
+                  />
+                ) : frameSrc ? (
+                  <iframe
+                    title="Live website — form filling preview"
+                    src={frameSrc}
+                    className={styles.frame}
+                    sandbox="allow-scripts allow-same-origin allow-forms"
+                  />
+                ) : null}
+                {sandbox.paused && (
+                  <div className={styles.pausedOverlay} aria-live="polite">
+                    Agent paused
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {actionLog.length > 0 && (
-            <div className={`${styles.footer} optional-chrome`}>
-              <ActionLog />
+              {actionLog.length > 0 && (
+                <div className={`${styles.footer} optional-chrome`}>
+                  <ActionLog />
+                </div>
+              )}
+              {simplifiedUi && (
+                <div className={styles.footer}>
+                  <SafetyConfirmation />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className={styles.empty}>
+              <p className={styles.emptyMessage}>Doc preview will appear here</p>
             </div>
           )}
-          {simplifiedUi && (
-            <div className={styles.footer}>
-              <SafetyConfirmation />
-            </div>
-          )}
-        </>
-      ) : (
-        <div className={styles.empty}>
-          <p className={styles.emptyMessage}>Doc preview will appear here</p>
         </div>
-      )}
+      </div>
     </aside>
   )
 }

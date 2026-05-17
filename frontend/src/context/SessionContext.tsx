@@ -19,19 +19,55 @@ import {
   createMessageSession,
   createUserSession,
   deleteMessageSession,
+  getChatSessionDetail,
   getUserSession,
   listMessageSessions,
 } from '../api/sessionClient'
-import { sendBrowserEvent, sendChatQuery } from '../api/client'
+import {
+  fetchSandboxPages,
+  getSandboxStreamUrl,
+  sendBrowserEvent,
+  sendChatQuery,
+  submitAgentForm,
+} from '../api/client'
+import { latestFormFromUiStates } from '../api/uiAdapter'
+import type { BackendAppIntent } from '../api/agentTypes'
 
 const SESSIONS_KEY = 'clearpath-sessions-v2'
 const ACTIVE_KEY = 'clearpath-active-session'
 const USER_SESSION_KEY = 'clearpath-user-session-id'
 
 const emptySandbox = (): SandboxSession => ({
+  pages: [],
   paused: false,
   minimized: false,
 })
+
+function normalizeSandbox(sandbox: Partial<SandboxSession> | undefined): SandboxSession {
+  return {
+    ...emptySandbox(),
+    ...sandbox,
+    pages: sandbox?.pages ?? [],
+  }
+}
+
+function loadSessions(): ChatSession[] {
+  try {
+    const raw = localStorage.getItem(SESSIONS_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as ChatSession[]
+      if (parsed.length > 0) {
+        return parsed.map((s) => ({
+          ...s,
+          sandbox: normalizeSandbox(s.sandbox),
+        }))
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return []
+}
 
 function welcomeMessage(): ChatMessage {
   return {
@@ -53,19 +89,6 @@ export function createEmptyChatSession(id?: string): ChatSession {
     actionLog: [],
     updatedAt: Date.now(),
   }
-}
-
-function loadSessions(): ChatSession[] {
-  try {
-    const raw = localStorage.getItem(SESSIONS_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as ChatSession[]
-      if (parsed.length > 0) return parsed
-    }
-  } catch {
-    /* ignore */
-  }
-  return []
 }
 
 function loadActiveId(sessions: ChatSession[]): string | null {
@@ -178,6 +201,57 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void syncWithBackend()
   }, [syncWithBackend])
 
+  const hydrateSessionFromBackend = useCallback(async (chatSessionId: string) => {
+    if (apiStatus !== 'connected') return
+
+    try {
+      const [detail, { pages, activePageId }] = await Promise.all([
+        getChatSessionDetail(chatSessionId),
+        fetchSandboxPages(chatSessionId),
+      ])
+
+      const activePage =
+        pages.find((p) => p.isActive) ??
+        pages.find((p) => p.id === activePageId) ??
+        pages[0]
+      const fallbackUrl = detail.page_urls[0]
+      const latestForm = latestFormFromUiStates(detail.chat_session_states)
+
+      setSessions((prev) => {
+        const next = prev.map((s) => {
+          if (s.id !== chatSessionId) return s
+          const streamUrl =
+            pages.length > 0 ? getSandboxStreamUrl(chatSessionId) : s.sandbox.streamUrl
+          return {
+            ...s,
+            simplifiedUi: latestForm?.simplifiedUi ?? s.simplifiedUi,
+            sandbox: {
+              ...s.sandbox,
+              pages,
+              activePageId: activePageId ?? undefined,
+              streamUrl,
+              url: activePage?.url ?? fallbackUrl ?? s.sandbox.url,
+              contextLabel: activePage?.title ?? s.sandbox.contextLabel,
+            },
+          }
+        })
+        persist(next, activeSessionId)
+        return next
+      })
+    } catch {
+      /* best effort */
+    }
+  }, [apiStatus, activeSessionId])
+
+  useEffect(() => {
+    if (!activeSessionId || apiStatus !== 'connected') return
+    void hydrateSessionFromBackend(activeSessionId)
+    const interval = window.setInterval(() => {
+      void hydrateSessionFromBackend(activeSessionId)
+    }, 3000)
+    return () => window.clearInterval(interval)
+  }, [activeSessionId, apiStatus, hydrateSessionFromBackend])
+
   const updateActiveSession = useCallback(
     (updater: (session: ChatSession) => ChatSession) => {
       if (!activeSessionId) return
@@ -227,11 +301,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return session.id
   }, [userSessionId, ensureUserSession])
 
-  const selectSession = useCallback((id: string) => {
-    setActiveSessionId(id)
-    localStorage.setItem(ACTIVE_KEY, id)
-    setActiveFieldId(null)
-  }, [])
+  const selectSession = useCallback(
+    (id: string) => {
+      setActiveSessionId(id)
+      localStorage.setItem(ACTIVE_KEY, id)
+      setActiveFieldId(null)
+      void hydrateSessionFromBackend(id)
+    },
+    [hydrateSessionFromBackend],
+  )
 
   const deleteSession = useCallback(
     async (id: string) => {
@@ -272,6 +350,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [activeSessionId],
   )
 
+  const handleAppIntent = useCallback(
+    async (intent: BackendAppIntent) => {
+      switch (intent.type) {
+        case 'switch_conversation_tab':
+          if (intent.id) selectSession(String(intent.id))
+          break
+        case 'delete_conversation':
+          if (intent.id) await deleteSession(String(intent.id))
+          break
+        case 'create_conversation':
+          await createSession()
+          break
+        case 'minimize_browser':
+          updateActiveSession((s) => ({
+            ...s,
+            sandbox: { ...s.sandbox, minimized: true },
+          }))
+          break
+        case 'full_screen_browser':
+          updateActiveSession((s) => ({
+            ...s,
+            sandbox: { ...s.sandbox, minimized: false },
+          }))
+          break
+        case 'open_settings':
+          break
+        default:
+          break
+      }
+    },
+    [selectSession, deleteSession, createSession, updateActiveSession],
+  )
+
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim()
@@ -293,31 +404,62 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setIsAgentBusy(true)
       try {
         const response = await sendChatQuery(trimmed, activeSessionId)
+
+        if (response.appIntent) {
+          await handleAppIntent(response.appIntent)
+        }
+
+        const nextSimplifiedUi =
+          response.simplifiedUi != null
+            ? {
+                ...response.simplifiedUi,
+                formReferenceId:
+                  response.formReferenceId ?? response.simplifiedUi.formReferenceId,
+              }
+            : undefined
+
         const assistantMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
           content: response.message,
           timestamp: Date.now(),
-          simplifiedUi: response.simplifiedUi,
+          simplifiedUi: nextSimplifiedUi ?? undefined,
         }
 
+        const { pages, activePageId } = await fetchSandboxPages(activeSessionId)
+        const activePage =
+          pages.find((p) => p.isActive) ??
+          pages.find((p) => p.id === activePageId) ??
+          pages[0]
+
         updateActiveSession((s) => {
-          let sandbox = { ...s.sandbox }
-          if (response.url) sandbox = { ...sandbox, url: response.url }
-          if (response.streamUrl) sandbox = { ...sandbox, streamUrl: response.streamUrl }
-          if (response.contextLabel) sandbox = { ...sandbox, contextLabel: response.contextLabel }
+          let sandbox = { ...s.sandbox, pages, activePageId: activePageId ?? undefined }
+          if (pages.length > 0) {
+            sandbox = {
+              ...sandbox,
+              streamUrl: getSandboxStreamUrl(activeSessionId),
+              url: activePage?.url ?? sandbox.url,
+              contextLabel: activePage?.title ?? sandbox.contextLabel,
+            }
+          }
+          if (response.confirmationDocumentUrl) {
+            sandbox = {
+              ...sandbox,
+              url: response.confirmationDocumentUrl,
+              contextLabel: 'Confirmation',
+            }
+          }
 
           return {
             ...s,
             messages: [...s.messages, assistantMsg],
-            simplifiedUi: response.simplifiedUi ?? s.simplifiedUi,
+            simplifiedUi: nextSimplifiedUi ?? s.simplifiedUi,
             sandbox,
-            actionLog: response.actionLog ?? s.actionLog,
           }
         })
 
-        if (response.simplifiedUi?.fields[0]) {
-          setActiveFieldId(response.simplifiedUi.fields[0].id)
+        if (nextSimplifiedUi?.fields[0]) {
+          setActiveFieldId(nextSimplifiedUi.fields[0].id)
         }
       } catch {
         const errorMsg: ChatMessage = {
@@ -325,7 +467,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           role: 'assistant',
           content:
             apiStatus === 'connected'
-              ? 'Chat API is not available yet (/chat). Session API is connected — try New chat to test backend sessions.'
+              ? 'Something went wrong talking to the agent. Make sure Redis is running and you created a new chat first.'
               : 'I could not reach the server. Start your backend and Redis, or check VITE_API_URL in .env.',
           timestamp: Date.now(),
         }
@@ -337,7 +479,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsAgentBusy(false)
       }
     },
-    [activeSessionId, updateActiveSession, apiStatus],
+    [activeSessionId, updateActiveSession, apiStatus, handleAppIntent],
   )
 
   const updateFieldValue = useCallback(
@@ -439,8 +581,44 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           sendBrowserEvent({ type: 'scroll', payload: { refresh: true } }, activeSessionId)
         }
       },
-      confirmSubmit: () => {
-        if (activeSessionId) sendBrowserEvent({ type: 'submit' }, activeSessionId)
+      confirmSubmit: async () => {
+        if (!activeSessionId) return
+        const formId = activeSession?.simplifiedUi?.formReferenceId
+        if (!formId) {
+          sendBrowserEvent({ type: 'submit' }, activeSessionId)
+          return
+        }
+        setIsAgentBusy(true)
+        try {
+          const response = await submitAgentForm(activeSessionId, formId)
+          const assistantMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: response.message,
+            timestamp: Date.now(),
+          }
+          updateActiveSession((s) => ({
+            ...s,
+            messages: [...s.messages, assistantMsg],
+            simplifiedUi: response.simplifiedUi ?? null,
+          }))
+          void hydrateSessionFromBackend(activeSessionId)
+        } catch {
+          updateActiveSession((s) => ({
+            ...s,
+            messages: [
+              ...s.messages,
+              {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: 'Form submission failed. Please try again.',
+                timestamp: Date.now(),
+              },
+            ],
+          }))
+        } finally {
+          setIsAgentBusy(false)
+        }
       },
     }),
     [
@@ -461,6 +639,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       undoLastChange,
       updateActiveSession,
       syncWithBackend,
+      hydrateSessionFromBackend,
     ],
   )
 
