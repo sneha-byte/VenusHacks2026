@@ -163,9 +163,9 @@ export function ChatPanel() {
       >
         {messages.length === 0 ? (
           <p className={`${styles.hint} optional-chrome`}>
-            Paste your UCI post-course form link here, or type &quot;start form&quot;, and I will
-            ask each question one at a time. Scroll up later to see every question and your
-            answers.
+            Paste your form link here, or type &quot;start form&quot;. Browzen asks one question at a
+            time with plain language — built for people with cognitive disability. Scroll up
+            anytime to review your answers.
           </p>
         ) : (
           messages.map((m) => (

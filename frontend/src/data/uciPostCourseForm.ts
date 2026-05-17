@@ -17,7 +17,7 @@ export type GuidedQuestion = {
 export const UCI_FORM_TITLE = 'How are you feeling? (Post-Course Survey)'
 
 export const UCI_FORM_INTRO =
-  'Congratulations on completing your first-year experience course! I will ask each question one at a time. Answer in the box below and press Send.'
+  'Congratulations on completing your first-year experience course! I will ask one question at a time in plain language. Type your answer below and press Send when you are ready — take your time.'
 
 export const UCI_FORM_QUESTIONS: GuidedQuestion[] = [
   {

@@ -7,7 +7,11 @@ import styles from './OnboardingPage.module.css'
 
 const NEED_OPTIONS = [
   { id: 'adhd', label: 'ADHD / easily overwhelmed', desc: 'Reduce clutter and break tasks into steps' },
-  { id: 'cognitive', label: 'Cognitive disability', desc: 'Clear labels, confirmations, and guided flow' },
+  {
+    id: 'cognitive',
+    label: 'Cognitive disability',
+    desc: 'One question at a time, read aloud, plain language, and calm layout',
+  },
   { id: 'elderly', label: 'Elderly or non-technical', desc: 'Large text, voice help, plain language' },
   { id: 'dyslexia', label: 'Dyslexia', desc: 'OpenDyslexic font and high contrast' },
   { id: 'executive', label: 'Executive dysfunction', desc: 'One step at a time with undo' },
@@ -25,14 +29,14 @@ const QUICK_TOGGLES = [
 
 const FEATURES = [
   {
+    title: 'Built for cognitive disability',
+    desc: 'Forms become one simple question at a time — with read-aloud, reminders, and no sudden jumps.',
+    icon: '🧠',
+  },
+  {
     title: 'Simpler forms',
     desc: 'Confusing pages become clear, step-by-step fields you can actually finish.',
     icon: '📋',
-  },
-  {
-    title: 'Live preview',
-    desc: 'Watch the real website fill in while you chat — nothing happens in secret.',
-    icon: '👁',
   },
   {
     title: 'Built for you',
@@ -55,6 +59,15 @@ export function OnboardingPage() {
       setNeeds(next)
       if (id === 'dyslexia' && !prev.includes(id)) updateProfile({ dyslexiaFont: true })
       if (id === 'adhd' && !prev.includes(id)) updateProfile({ reduceClutter: true, stepByStep: true })
+      if (id === 'cognitive' && !prev.includes(id)) {
+        updateProfile({
+          stepByStep: true,
+          readAloud: true,
+          reduceClutter: true,
+          largeText: true,
+        })
+      }
+      if (id === 'executive' && !prev.includes(id)) updateProfile({ stepByStep: true })
       if (id === 'elderly' && !prev.includes(id)) updateProfile({ largeText: true, readAloud: true })
       return next
     })
@@ -97,14 +110,16 @@ export function OnboardingPage() {
       <section className={styles.hero}>
         <div className={styles.heroInner}>
           <BrowzenLogo size={72} />
-          <p className={styles.eyebrow}>Accessible web assistant</p>
+          <p className={styles.eyebrow}>
+            Accessible web assistant for people with cognitive disability
+          </p>
           <h1 className={styles.heroTitle}>
             Finish forms online
             <span className={styles.heroAccent}> without the stress</span>
           </h1>
           <p className={styles.heroLead}>
-            Browzen guides you through government, medical, and everyday sites with plain language,
-            voice help, and a live preview of what&apos;s being filled.
+            Browzen is an accessible web assistant that asks one question at a time, reads aloud,
+            and uses plain language — so government, medical, and everyday forms feel manageable.
           </p>
           <div className={styles.heroActions}>
             <button type="button" className={styles.primary} onClick={scrollToSetup}>
@@ -138,7 +153,10 @@ export function OnboardingPage() {
         <div className={styles.setupInner}>
           <header className={styles.setupHeader}>
             <h2 id="setup-heading">Set up your workspace</h2>
-            <p>Pick what applies to you. You can change everything later from the app.</p>
+            <p>
+              Browzen is designed with cognitive disability in mind. Pick what applies to you — you
+              can change everything later from the app.
+            </p>
           </header>
 
           <div className={styles.setupGrid}>
@@ -198,7 +216,10 @@ export function OnboardingPage() {
 
       <footer className={styles.siteFooter}>
         <BrowzenLogo size={32} showWordmark />
-        <p>© {new Date().getFullYear()} Browzen · Built for accessible browsing</p>
+        <p>
+          © {new Date().getFullYear()} Browzen · Accessible web assistant for people with cognitive
+          disability
+        </p>
       </footer>
     </div>
   )
