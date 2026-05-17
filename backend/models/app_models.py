@@ -291,3 +291,4 @@ class ChatResponseType(str, Enum):
 class ChatResponse(BaseModel):
     response_type: ChatResponseType
     response: Union[UIBase, AppIntent]
+

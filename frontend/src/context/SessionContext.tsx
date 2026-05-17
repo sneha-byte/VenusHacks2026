@@ -24,9 +24,9 @@ import {
 } from '../api/sessionClient'
 import { sendBrowserEvent, sendChatQuery } from '../api/client'
 
-const SESSIONS_KEY = 'easyweb-sessions-v2'
-const ACTIVE_KEY = 'easyweb-active-session'
-const USER_SESSION_KEY = 'easyweb-user-session-id'
+const SESSIONS_KEY = 'clearpath-sessions-v2'
+const ACTIVE_KEY = 'clearpath-active-session'
+const USER_SESSION_KEY = 'clearpath-user-session-id'
 
 const emptySandbox = (): SandboxSession => ({
   paused: false,

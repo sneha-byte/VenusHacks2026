@@ -5,9 +5,9 @@ AI-powered accessibility tool for simplifying confusing websites (DMV, healthcar
 **Repo layout**
 
 - `backend/` — FastAPI + browser-use agent, sessions, sandbox
-- `frontend/` — EasyWeb React web app (onboarding, chat, simplified UI, sandbox preview)
+- `frontend/` — ClearPath React web app (onboarding, chat, simplified UI, sandbox preview)
 
-## Web frontend (EasyWeb)
+## Web frontend (ClearPath)
 
 ```bash
 cd frontend

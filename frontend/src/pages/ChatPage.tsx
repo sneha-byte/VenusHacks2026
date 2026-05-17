@@ -98,7 +98,7 @@ export function ChatPage() {
               </div>
             ) : (
               <div className={styles.titleRow}>
-                <h1>{activeSession?.title ?? 'EasyWeb Assistant'}</h1>
+                <h1>{activeSession?.title ?? 'ClearPath Assistant'}</h1>
                 {activeSession && (
                   <button
                     type="button"

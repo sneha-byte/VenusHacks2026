@@ -10,7 +10,7 @@ export function useSandboxBrowser(sessionId?: string) {
       if (!sessionId) return
       await sendBrowserEvent(event, sessionId)
       frameRef.current?.contentWindow?.postMessage(
-        { source: 'easyweb', event },
+        { source: 'clearpath', event },
         '*',
       )
     },

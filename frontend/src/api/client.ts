@@ -41,8 +41,8 @@ export async function sendBrowserEvent(
     body: JSON.stringify({ ...event, sessionId }),
   })
 }
-
 /** GET /sandbox/stream — URL for live browser stream */
 export function getSandboxStreamUrl(sessionId: string): string {
   return `${API_BASE}/sandbox/stream/${sessionId}`
 }
+

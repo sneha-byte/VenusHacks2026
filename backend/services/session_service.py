@@ -1,98 +1,184 @@
 import uuid
+from dataclasses import dataclass
+
 from browser_use import Agent
 from browser_use.browser.profile import ViewportSize
 from browser_use.llm import ChatDeepSeek
 from playwright.async_api import (
-    Browser,
-    BrowserContext,
-    Playwright,
-    async_playwright,
+	Browser,
+	BrowserContext,
+	Page,
+	Playwright,
+	async_playwright,
 )
 from pydantic import UUID4
 from common.constants import DEEPSEEK_API_KEY
 
 
+@dataclass
+class PageMeta:
+	id: UUID4
+	url: str
+	title: str
+
+
 class SessionService:
-    def __init__(self):
-        self._agents: dict[UUID4, Agent] = {}            # session id → Agent
-        self._contexts: dict[UUID4, BrowserContext] = {} # session id → BrowserContext (for cleanup)
-        self._llm = ChatDeepSeek(api_key=DEEPSEEK_API_KEY)
-        self._playwright: Playwright | None = None
-        self._browser: Browser | None = None
+	def __init__(self):
+		self._agents: dict[UUID4, Agent] = {}
+		self._contexts: dict[UUID4, BrowserContext] = {}
+		self._pages: dict[UUID4, dict[UUID4, Page]] = {}
+		self._page_order: dict[UUID4, list[UUID4]] = {}
+		self._active_page_id: dict[UUID4, UUID4] = {}
+		self._llm = ChatDeepSeek(api_key=DEEPSEEK_API_KEY)
+		self._playwright: Playwright | None = None
+		self._browser: Browser | None = None
 
-    async def start(self):
-        self._playwright = await async_playwright().start()  # initializes the Playwright runtime
-        self._browser = await self._playwright.chromium.launch(  # starts chromium process
-            headless=True,
-            args=["--no-sandbox"],
-        )
+	async def start(self):
+		self._playwright = await async_playwright().start()
+		self._browser = await self._playwright.chromium.launch(
+			headless=True,
+			args=["--no-sandbox"],
+		)
 
-    async def stop(self):
-        for session_id in list(self._agents.keys()):  # make a snapshot of the keys before iterating
-            await self.expire_session(session_id)
-        if self._browser is not None:
-            await self._browser.close()
-        if self._playwright is not None:
-            await self._playwright.stop()
+	async def stop(self):
+		for session_id in list(self._agents.keys()):
+			await self.expire_session(session_id)
+		if self._browser is not None:
+			await self._browser.close()
+		if self._playwright is not None:
+			await self._playwright.stop()
 
-    # looks up a session ID in the agents dict and returns the Agent, or None if the ID isn't there.
-    def get_session_agent(self, session_id: UUID4) -> Agent | None:
-        return self._agents.get(session_id)
+	def get_session_agent(self, session_id: UUID4) -> Agent | None:
+		return self._agents.get(session_id)
 
-    async def create_new_session(self, start_url: str = "about:blank") -> UUID4:
-        session_id = uuid.uuid4()
-        #  if start() hasn't been called yet
-        if self._browser is None:
-            raise RuntimeError("SessionService.start() must be called before create_new_session().")
+	def has_session(self, session_id: UUID4) -> bool:
+		return session_id in self._agents
 
-        context = await self._browser.new_context(viewport=ViewportSize(width=1280, height=720))
-        page = await context.new_page()
-        await page.goto(start_url)
+	async def create_new_session(self, start_url: str = "about:blank") -> UUID4:
+		session_id = uuid.uuid4()
+		if self._browser is None:
+			raise RuntimeError("SessionService.start() must be called before create_new_session().")
 
-        agent = Agent(
-            task="Wait for the user's first request.",
-            llm=self._llm,
-            page=page,
-        )
+		context = await self._browser.new_context(viewport=ViewportSize(width=1280, height=720))
+		page = await context.new_page()
+		await page.goto(start_url)
 
-        self._agents[session_id] = agent
-        self._contexts[session_id] = context
-        return session_id
+		agent = Agent(
+			task="Wait for the user's first request.",
+			llm=self._llm,
+			page=page,
+		)
 
-    async def expire_session(self, session_id: UUID4) -> None:
-        agent = self._agents.pop(session_id, None)
-        context = self._contexts.pop(session_id, None)
-        if agent is not None:
-            try:
-                await agent.close()
-            except Exception:
-                pass  # best effort
-        if context is not None:
-            await context.close()
+		page_id = uuid.uuid4()
+		self._agents[session_id] = agent
+		self._contexts[session_id] = context
+		self._pages[session_id] = {page_id: page}
+		self._page_order[session_id] = [page_id]
+		self._active_page_id[session_id] = page_id
+		return session_id
 
-    def get_session_context(self, session_id: UUID4) -> BrowserContext | None:
-        return self._contexts.get(session_id, None)
+	def get_session_context(self, session_id: UUID4) -> BrowserContext | None:
+		return self._contexts.get(session_id)
 
-    async def create_session_view(self, session_id: UUID4, page_index) -> dict:
-        agent = self._agents.get(session_id)
-        context = self._contexts.get(session_id)
-        requested_page = context.pages[page_index] if context.pages else None
+	async def expire_session(self, session_id: UUID4) -> None:
+		agent = self._agents.pop(session_id, None)
+		context = self._contexts.pop(session_id, None)
+		self._pages.pop(session_id, None)
+		self._page_order.pop(session_id, None)
+		self._active_page_id.pop(session_id, None)
+		if agent is not None:
+			try:
+				await agent.close()
+			except Exception:
+				pass
+		if context is not None:
+			await context.close()
 
-        if agent is None or context is None:
-            raise KeyError(f"Unknown session: {session_id}")
-        page = context.pages[0] if context.pages else None
-        return {
-            "session_id": str(session_id),
-            "url": page.url if page else None,
-            "title": await page.title() if page else None,
-        }
+	async def _page_meta(self, session_id: UUID4, page_id: UUID4, page: Page) -> PageMeta:
+		title = await page.title() or "Untitled"
+		return PageMeta(id=page_id, url=page.url, title=title[:80])
 
-    async def process_user_input(self, session_id: UUID4, user_input: str) -> dict:
-        agent = self._agents.get(session_id)
-        if agent is None:
-            raise KeyError(f"Unknown session: {session_id}")
-        agent.task = user_input
-        result = await agent.run()
-        return {"result": str(result)}
+	async def list_pages(self, session_id: UUID4) -> tuple[list[PageMeta], UUID4 | None]:
+		pages_map = self._pages.get(session_id, {})
+		order = self._page_order.get(session_id, [])
+		active_id = self._active_page_id.get(session_id)
+		result: list[PageMeta] = []
+		for page_id in order:
+			page = pages_map.get(page_id)
+			if page is None:
+				continue
+			meta = await self._page_meta(session_id, page_id, page)
+			result.append(meta)
+		return result, active_id
+
+	async def open_page(self, session_id: UUID4, url: str) -> PageMeta:
+		context = self._contexts.get(session_id)
+		if context is None:
+			raise KeyError(f"Unknown session: {session_id}")
+
+		page = await context.new_page()
+		await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+
+		page_id = uuid.uuid4()
+		self._pages.setdefault(session_id, {})[page_id] = page
+		self._page_order.setdefault(session_id, []).append(page_id)
+		await self.set_active_page(session_id, page_id)
+		return await self._page_meta(session_id, page_id, page)
+
+	async def set_active_page(self, session_id: UUID4, page_id: UUID4) -> PageMeta:
+		pages_map = self._pages.get(session_id)
+		agent = self._agents.get(session_id)
+		if pages_map is None or page_id not in pages_map:
+			raise KeyError(f"Unknown page {page_id} in session {session_id}")
+
+		page = pages_map[page_id]
+		await page.bring_to_front()
+		if agent is not None:
+			agent.page = page
+		self._active_page_id[session_id] = page_id
+		return await self._page_meta(session_id, page_id, page)
+
+	def get_active_page_id(self, session_id: UUID4) -> UUID4 | None:
+		return self._active_page_id.get(session_id)
+
+	async def screenshot_active_page(self, session_id: UUID4) -> bytes:
+		active_id = self._active_page_id.get(session_id)
+		if active_id is None:
+			raise KeyError(f"No active page for session {session_id}")
+		pages_map = self._pages.get(session_id, {})
+		page = pages_map.get(active_id)
+		if page is None:
+			raise KeyError(f"Active page missing for session {session_id}")
+		return await page.screenshot(type="png", full_page=False)
+
+	async def create_session_view(self, session_id: UUID4, page_index: int | None = None) -> dict:
+		context = self._contexts.get(session_id)
+		if context is None:
+			raise KeyError(f"Unknown session: {session_id}")
+
+		page: Page | None = None
+		if page_index is not None and 0 <= page_index < len(context.pages):
+			page = context.pages[page_index]
+		else:
+			active_id = self._active_page_id.get(session_id)
+			pages_map = self._pages.get(session_id, {})
+			page = pages_map.get(active_id) if active_id else None
+			if page is None and pages_map:
+				page = next(iter(pages_map.values()))
+
+		return {
+			"session_id": str(session_id),
+			"url": page.url if page else None,
+			"title": await page.title() if page else None,
+		}
+
+	async def process_user_input(self, session_id: UUID4, user_input: str) -> dict:
+		agent = self._agents.get(session_id)
+		if agent is None:
+			raise KeyError(f"Unknown session: {session_id}")
+		agent.task = user_input
+		result = await agent.run()
+		return {"result": str(result)}
+
 
 session_service = SessionService()

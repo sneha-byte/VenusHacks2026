@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAccessibility } from '../context/AccessibilityContext'
 import { useSession } from '../context/SessionContext'
-import { EasyWebLogo } from '../components/brand/EasyWebLogo'
+import { ClearPathLogo } from '../components/brand/ClearPathLogo'
 import styles from './OnboardingPage.module.css'
 
 const NEED_OPTIONS = [
@@ -72,7 +72,7 @@ export function OnboardingPage() {
   return (
     <div className={styles.site}>
       <header className={styles.nav}>
-        <EasyWebLogo size={40} showWordmark variant="light" />
+        <ClearPathLogo size={40} showWordmark variant="light" />
         <nav className={styles.navLinks} aria-label="Page sections">
           <button type="button" className={styles.navLink} onClick={scrollToSetup}>
             Personalize
@@ -85,14 +85,14 @@ export function OnboardingPage() {
 
       <section className={styles.hero}>
         <div className={styles.heroInner}>
-          <EasyWebLogo size={72} />
+          <ClearPathLogo size={72} />
           <p className={styles.eyebrow}>Accessible web assistant</p>
           <h1 className={styles.heroTitle}>
             Finish forms online
             <span className={styles.heroAccent}> without the stress</span>
           </h1>
           <p className={styles.heroLead}>
-            EasyWeb guides you through government, medical, and everyday sites with plain language,
+            ClearPath guides you through government, medical, and everyday sites with plain language,
             voice help, and a live preview of what&apos;s being filled.
           </p>
           <div className={styles.heroActions}>
@@ -108,7 +108,7 @@ export function OnboardingPage() {
 
       <section className={styles.features} aria-labelledby="features-heading">
         <h2 id="features-heading" className={styles.sectionTitle}>
-          How EasyWeb helps
+          How ClearPath helps
         </h2>
         <ul className={styles.featureGrid}>
           {FEATURES.map((f) => (
@@ -186,8 +186,8 @@ export function OnboardingPage() {
       </section>
 
       <footer className={styles.siteFooter}>
-        <EasyWebLogo size={32} showWordmark />
-        <p>© {new Date().getFullYear()} EasyWeb · Built for accessible browsing</p>
+        <ClearPathLogo size={32} showWordmark />
+        <p>© {new Date().getFullYear()} ClearPath · Built for accessible browsing</p>
       </footer>
     </div>
   )

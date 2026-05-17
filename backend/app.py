@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from common.constants import ALLOWED_ORIGINS
 from routes.agent import agent_router
+from routes.sandbox import sandbox_router
 from routes.sessions import session_router
 from services.session_service import session_service
 
@@ -30,7 +31,7 @@ async def lifespan(_):
 
 app = FastAPI(
 	title="ClearPath API",
-	description="Backend AI orchestration layer for EasyWeb.",
+	description="Backend AI orchestration layer for ClearPath.",
 	version="0.1.0",
 	lifespan=lifespan,
 )
@@ -45,6 +46,7 @@ app.add_middleware(
 
 app.include_router(session_router)
 app.include_router(agent_router)
+app.include_router(sandbox_router)
 
 
 @app.get("/health")
