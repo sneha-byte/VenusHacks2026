@@ -156,37 +156,38 @@ POST   /session/update-message-session
 
 These routes manage user sessions, browser/chat sessions, and stored UI state.
 
-### Agent Chat Route
+### Agent Routes
 
 `backend/routes/agent.py` defines:
 
 ```http
-POST /chat
+POST /agent/chat          { "query": "...", "session_id": "<chat session id>" }
+POST /agent/submit-form   { "session_id": "...", "form_reference_id": "<form UI id>" }
 ```
 
-Request body:
+`/agent/chat`:
 
-```json
-{
-  "query": "Help me fill out this form",
-  "sessionId": "00000000-0000-4000-8000-000000000000"
-}
+1. saves the user message and loads the chat history from Redis
+2. classifies the query into a `ParsedIntent` (website / form / app / invalid)
+3. form updates are merged into the stored simplified form; website requests run the
+   browser-use agent inside that chat's own Playwright context
+4. stores the returned UI state and returns a `ChatResponse`
+
+Both routes publish live progress to the session's WebSocket (below).
+
+### Live WebSocket
+
+```text
+WS /sandbox/ws/{chat_session_id}[?frames=false]
 ```
 
-The route:
+- **Binary messages:** JPEG frames of the session's active page, sent only when the frame changes (~2 fps max).
+- **Text messages:** JSON agent events: `agent_started`, `intent`, `agent_step` (step number, goal, actions), `agent_done`, `agent_error`.
+- **On connect:** the server first sends `{"type": "replay", "events": [...]}` with the last 50 events from Redis, so a client that reconnects mid-run catches up.
+- **Client controls:** `{"type": "pause"}` / `{"type": "resume"}` stop and restart frames.
+- **Events only:** `?frames=false` skips screenshots. The chat's progress strip uses this.
 
-1. loads the current chat state from Redis
-2. classifies the user query into a parsed intent
-3. runs the browser-use service against the active browser session
-4. stores the returned UI state
-5. returns a `UIResponse`
-
-Important: in the current `backend/app.py`, the agent router is commented out. To enable `/chat`, uncomment:
-
-```python
-from routes.agent import agent_router
-app.include_router(agent_router)
-```
+The frontend falls back to polling `GET /sandbox/stream/{id}` if the socket can't connect.
 
 ## Core Models
 
@@ -235,13 +236,50 @@ High-level flow:
 6. The result is converted into a simplified `UIResponse`.
 7. The UI response is stored in Redis and returned to the frontend.
 
-## Current Integration Notes
+## Run with Docker
 
-- The backend `/chat` route currently returns the backend `UIResponse` model directly.
-- The frontend API client currently expects a `ChatResponse` shape with fields like `message` and `simplifiedUi`.
-- A small mapping layer may be needed so frontend and backend response shapes match.
-- `playwright install chromium` is required after installing backend dependencies.
-- Redis must be running for session persistence.
+```bash
+DEEPSEEK_API_KEY=your_key docker compose up --build
+```
+
+- Frontend: http://localhost:5173
+- API: http://localhost:8000
+
+The compose file runs three containers:
+
+- **Redis**, with a volume so data persists.
+- **The backend**, with Chromium installed through the pinned Playwright version and 1 GB of shared memory for the browser.
+- **The frontend**, built with Vite and served by nginx.
+
+## Memory Benchmark
+
+`backend/benchmarks/memory_benchmark.py` compares two designs for N concurrent users:
+
+- **separate:** one browser per user.
+- **shared:** one Chromium with an isolated context per user, which is what `SessionService` does.
+
+```bash
+cd backend
+python benchmarks/memory_benchmark.py --users 10 --runs 3
+python benchmarks/memory_benchmark.py --url https://www.dmv.ca.gov/portal/
+```
+
+Results on Linux (PSS, median of 3 runs, built-in 60-section test form):
+
+| Users | Separate browsers | Shared + contexts | Reduction |
+|---|---|---|---|
+| 5 | 920 MB | 553 MB | 40% |
+| 10 | 1561 MB | 789 MB | 49% |
+
+The savings grow with the number of users, because every extra browser repeats the
+browser process, GPU process and network service, while an extra context only adds a renderer.
+
+## Notes
+
+- `browser-use` is pinned to 0.5.11. Version 0.6 and later drive Chrome over CDP and ignore a
+  Playwright `BrowserContext`, so the agent would launch its own browser outside the user's session.
+- `playwright install chromium` is required after installing backend dependencies (the Docker image does this).
+- Without Redis the backend falls back to an in-memory store (fine for local dev, lost on restart).
 
 ## Useful Commands
 
