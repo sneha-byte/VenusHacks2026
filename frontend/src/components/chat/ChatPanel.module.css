@@ -158,3 +158,22 @@
 [data-large-text='true'] .assistantBubble {
   font-size: 1.2em;
 }
+
+/* Live agent steps shown while a browser run is in progress */
+.agentProgress {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-top: 2px solid var(--color-border);
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.agentProgress li + li {
+  margin-top: 0.2rem;
+}
+
+.agentStepActive {
+  font-weight: 600;
+  color: inherit;
+}

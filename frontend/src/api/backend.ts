@@ -70,6 +70,15 @@ export function sandboxStreamUrl(chatSessionId: string): string {
   return `${API_BASE}/sandbox/stream/${chatSessionId}`
 }
 
+/** WebSocket for live frames + agent events: ws(s)://<api>/sandbox/ws/<id> */
+export function sandboxSocketUrl(chatSessionId: string, frames = true): string {
+  const base = new URL(API_BASE, window.location.href)
+  base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:'
+  base.pathname = `${base.pathname.replace(/\/$/, '')}/sandbox/ws/${chatSessionId}`
+  if (!frames) base.searchParams.set('frames', 'false')
+  return base.toString()
+}
+
 export async function fetchSandboxStreamPng(streamUrl: string): Promise<Blob> {
   const res = await apiFetch(
     streamUrl.includes('?') ? streamUrl : `${streamUrl}?t=${Date.now()}`,
