@@ -4,12 +4,19 @@ import redis.asyncio as redis
 from pydantic import UUID4
 
 from common.constants import REDIS_HOST, REDIS_PASSWORD, REDIS_PORT, SESSION_EXPIRATION
+from pydantic import TypeAdapter
+
 from models.app_models import UIBase, UserState, UIResponse
 from services.memory_session_store import MemorySessionStore
 
 USER_KEY_PREFIX = "user"
 CHAT_SESSION_KEY_PREFIX = "chat_session"
 CHAT_MESSAGE_KEY_PREFIX = "chat_message"
+
+# UIResponse is a Union, so it has no .model_validate(); a TypeAdapter keeps the
+# concrete subclass (FormResponse, MarkdownResponse, ...) instead of collapsing
+# everything to UIBase and dropping its fields.
+_ui_adapter = TypeAdapter(UIResponse)
 
 
 class RedisService:
@@ -121,11 +128,11 @@ class RedisService:
 		backend = await self._backend()
 		if backend is self._memory:
 			raw = await backend.get_chat_message(session_id, message_id)
-			return UIResponse.model_validate(raw) if raw else None
+			return _ui_adapter.validate_python(raw) if raw else None
 		raw = await backend.hget(self._chat_message_key(session_id), str(message_id))
 		if not raw:
 			return None
-		return UIResponse.model_validate_json(raw)
+		return _ui_adapter.validate_json(raw)
 
 	async def get_chat_messages(self, session_id: UUID4) -> List[UIBase] | None:
 		backend = await self._backend()
@@ -134,10 +141,9 @@ class RedisService:
 		raw_chat_session = await backend.hgetall(self._chat_message_key(session_id))
 		if not raw_chat_session:
 			return None
-		messages = []
-		for val in raw_chat_session.values():
-			messages.append(UIBase.model_validate_json(val))
-		return messages
+		messages = [_ui_adapter.validate_json(val) for val in raw_chat_session.values()]
+		# Redis hashes don't guarantee order; keep the conversation chronological.
+		return sorted(messages, key=lambda m: m.created_at)
 
 	async def delete_chat_messages(self, session_id: UUID4, message_id: UUID4) -> bool:
 		backend = await self._backend()
@@ -148,6 +154,13 @@ class RedisService:
 			self._chat_session_ui_state_field(message_id),
 		)
 		return deleted_count > 0
+
+	async def delete_all_chat_messages(self, session_id: UUID4) -> None:
+		backend = await self._backend()
+		if backend is self._memory:
+			await backend.delete_all_chat_messages(session_id)
+			return
+		await backend.delete(self._chat_message_key(session_id))
 
 
 redis_service = RedisService()

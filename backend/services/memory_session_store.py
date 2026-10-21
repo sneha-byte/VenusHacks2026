@@ -8,7 +8,11 @@ from uuid import UUID
 
 from pydantic import UUID4
 
-from models.app_models import UIBase, UserState
+from pydantic import TypeAdapter
+
+from models.app_models import UIBase, UIResponse, UserState
+
+_ui_adapter = TypeAdapter(UIResponse)
 
 
 class MemorySessionStore:
@@ -61,8 +65,11 @@ class MemorySessionStore:
 		bucket = self._chat_messages.get(str(session_id), {})
 		if not bucket:
 			return None
-		return [UIBase.model_validate_json(val) for val in bucket.values()]
+		return [_ui_adapter.validate_json(val) for val in bucket.values()]
 
 	async def delete_chat_messages(self, session_id: UUID4, message_id: UUID4) -> bool:
 		bucket = self._chat_messages.get(str(session_id), {})
 		return bucket.pop(str(message_id), None) is not None
+
+	async def delete_all_chat_messages(self, session_id: UUID4) -> None:
+		self._chat_messages.pop(str(session_id), None)

@@ -92,6 +92,16 @@ async def sandbox_event(request: BrowserEventRequest) -> dict[str, bool]:
 	if not session_service.has_session(request.sessionId):
 		return {"ok": False}
 
+	try:
+		await _handle_sandbox_event(request)
+	except Exception as exc:
+		# A page that fails to load shouldn't surface as a 500 (which also hides CORS headers).
+		print(f"Sandbox event {request.type} failed: {exc}")
+		return {"ok": False}
+	return {"ok": True}
+
+
+async def _handle_sandbox_event(request: BrowserEventRequest) -> None:
 	payload = request.payload or {}
 
 	if request.type == "scroll" and payload.get("refresh"):
@@ -116,5 +126,3 @@ async def sandbox_event(request: BrowserEventRequest) -> dict[str, bool]:
 		urls = _URL_RE.findall(str(value or ""))
 		if urls:
 			await session_service.navigate_to_url(request.sessionId, urls[0])
-
-	return {"ok": True}
