@@ -2,11 +2,11 @@ import json
 import uuid
 from typing import List
 
-from browser_use import Agent
+from browser_use import Agent, BrowserSession
 from browser_use.llm import ChatDeepSeek, SystemMessage, UserMessage
 from playwright.async_api import BrowserContext
-from pydantic import BaseModel, ValidationError
-from common import DEEPSEEK_API_KEY, MAX_CONTEXT_WINDOW
+from pydantic import UUID4, BaseModel, ValidationError
+from common.constants import DEEPSEEK_API_KEY, MAX_AGENT_STEPS, MAX_CONTEXT_WINDOW
 from models.app_models import (
 	IntentDomain,
 	InvalidIntent,
@@ -15,6 +15,7 @@ from models.app_models import (
 	UIResponseType, UIBase, FormResponse, MarkdownResponse, UIResponse,
 	ChatSessionState, AgentResponse,
 )
+from services.session_service import session_service
 
 
 class BrowserUseService:
@@ -58,7 +59,9 @@ class BrowserUseService:
 				intent=InvalidIntent(reason="Failed to parse the response.")
 			)
 
-	async def submit_form(self, form_element: FormResponse, context: BrowserContext) -> UIResponse:
+	async def submit_form(
+		self, form_element: FormResponse, context: BrowserContext, session_id: UUID4 | None = None,
+	) -> UIResponse:
 		"""Submit a form element to the browser."""
 		task = f"""
 			You are a form submitter for an accessible web assistant.
@@ -70,15 +73,15 @@ class BrowserUseService:
 			return a ConversationResponse including the missing field.
 			
 		"""
-		return await self._run_agent_task(task, context)
-
+		return await self._run_agent_task(task, context, session_id)
 
 	async def perform_action(
 		self,
 		user_query: UserQuery,
 		messages: List[UIResponse],
 		intent: ParsedIntent,
-		context: BrowserContext
+		context: BrowserContext,
+		session_id: UUID4 | None = None,
 	) -> UIBase:
 		"""Run the parsed browser/form intent and return UI state for the frontend."""
 		if intent.domain == IntentDomain.INVALID:
@@ -109,18 +112,27 @@ class BrowserUseService:
 	        2. Perform the relevant actions on the website.
 
         """
-		return await self._run_agent_task(task, context)
+		return await self._run_agent_task(task, context, session_id)
 
 	async def _run_agent_task(
-		self, task: str, context: BrowserContext
+		self, task: str, context: BrowserContext, session_id: UUID4 | None = None,
 	) -> UIResponse:
+		# Point browser-use at this user's existing Playwright context so the agent
+		# acts inside the same isolated session the preview shows. keep_alive stops
+		# the agent from closing the shared context when it finishes.
+		browser_session = BrowserSession(
+			browser_context=context,
+			agent_current_page=session_service.get_active_page(session_id) if session_id else None,
+			keep_alive=True,
+		)
+
 		agent = Agent(
 			llm=self._llm,
-			context=context,
+			browser_session=browser_session,
 			task=task,
 			output_model_schema=AgentResponse,
 		)
-		result = await agent.run(max_steps=25)
+		result = await agent.run(max_steps=MAX_AGENT_STEPS)
 		response_object = AgentResponse.model_validate(result.structured_output).response
 		response_object.id = uuid.uuid4()
 		return response_object

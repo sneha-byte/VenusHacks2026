@@ -65,7 +65,9 @@ async def chat(request: UserQuery) -> ChatResponse:
 			await redis_service.set_chat_message(request.session_id, form)
 			return ChatResponse(response_type=ChatResponseType.FORM_UPDATE_RESPONSE, response=form)
 
-		ui_state = await browser_use_service.perform_action(request, chat_state, parsed_intent, context)
+		ui_state = await browser_use_service.perform_action(
+			request, chat_state, parsed_intent, context, session_id=request.session_id,
+		)
 		await redis_service.set_chat_message(request.session_id, ui_state)
 		return ChatResponse(response_type=ChatResponseType.UI_RESPONSE, response=ui_state)
 	except HTTPException:
@@ -82,7 +84,7 @@ async def submit_form(request: FormSubmissionRequest) -> ChatResponse:
 
 	form = await _get_form(request.session_id, request.form_reference_id)
 	try:
-		result = await browser_use_service.submit_form(form, context)
+		result = await browser_use_service.submit_form(form, context, session_id=request.session_id)
 	except Exception as exc:
 		raise HTTPException(500, "Form submission failed.") from exc
 

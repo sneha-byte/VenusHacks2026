@@ -9,6 +9,7 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL")
 DEEPSEEK_URL = "https://api.deepseek.com/"
 
 MAX_CONTEXT_WINDOW = 5
+MAX_AGENT_STEPS = 25
 
 # FastAPI config
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
