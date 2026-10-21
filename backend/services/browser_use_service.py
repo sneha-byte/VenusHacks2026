@@ -16,6 +16,7 @@ from models.app_models import (
 	ChatSessionState, AgentResponse,
 )
 from services.session_service import session_service
+from services.stream_hub import stream_hub
 
 
 class BrowserUseService:
@@ -126,11 +127,29 @@ class BrowserUseService:
 			keep_alive=True,
 		)
 
+		async def on_step(_state, model_output, step_number: int) -> None:
+			if session_id is None:
+				return
+			actions = [
+				name
+				for action in (model_output.action or [])
+				for name, params in action.model_dump(exclude_unset=True).items()
+				if params is not None
+			]
+			await stream_hub.publish(
+				session_id,
+				"agent_step",
+				step=step_number,
+				goal=model_output.next_goal,
+				actions=actions,
+			)
+
 		agent = Agent(
 			llm=self._llm,
 			browser_session=browser_session,
 			task=task,
 			output_model_schema=AgentResponse,
+			register_new_step_callback=on_step,
 		)
 		result = await agent.run(max_steps=MAX_AGENT_STEPS)
 		response_object = AgentResponse.model_validate(result.structured_output).response

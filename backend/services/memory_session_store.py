@@ -20,6 +20,7 @@ class MemorySessionStore:
 		self._users: dict[str, str] = {}
 		self._user_chats: dict[str, dict[str, str]] = {}
 		self._chat_messages: dict[str, dict[str, str]] = {}
+		self._agent_events: dict[str, list[dict]] = {}
 
 	async def ping(self) -> bool:
 		return True
@@ -73,3 +74,14 @@ class MemorySessionStore:
 
 	async def delete_all_chat_messages(self, session_id: UUID4) -> None:
 		self._chat_messages.pop(str(session_id), None)
+		self._agent_events.pop(str(session_id), None)
+
+	async def append_agent_event(self, session_id: UUID4, event: dict) -> None:
+		from services.redis_service import AGENT_EVENTS_MAX
+
+		events = self._agent_events.setdefault(str(session_id), [])
+		events.append(event)
+		del events[:-AGENT_EVENTS_MAX]
+
+	async def get_agent_events(self, session_id: UUID4) -> list[dict]:
+		return list(self._agent_events.get(str(session_id), []))

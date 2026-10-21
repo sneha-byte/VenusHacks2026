@@ -1,12 +1,21 @@
+import asyncio
+import hashlib
 import re
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from pydantic import UUID4, BaseModel
 
 from models.sandbox_models import BrowserPageInfo, SandboxPagesResponse
 from services.google_form_fill import fill_uci_post_course_form
+from services.redis_service import redis_service
 from services.session_service import session_service
+from services.stream_hub import stream_hub
+
+# ~2 fps is plenty for watching an agent click through a form, and unchanged
+# frames are skipped, so an idle page costs almost nothing.
+FRAME_INTERVAL_SECONDS = 0.5
+FRAME_JPEG_QUALITY = 60
 
 sandbox_router = APIRouter(prefix="/sandbox", tags=["Sandbox"])
 
@@ -60,6 +69,78 @@ async def stream_active_page(session_id: UUID4) -> Response:
 		media_type="image/png",
 		headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
 	)
+
+
+@sandbox_router.websocket("/ws/{session_id}")
+async def sandbox_socket(websocket: WebSocket, session_id: UUID4, frames: bool = True) -> None:
+	"""Live channel for one chat session.
+
+	Server -> client:
+	  * binary messages: JPEG frames of the active page (sent only when the frame changes)
+	  * text messages: JSON agent events (agent_started, intent, agent_step, agent_done, agent_error)
+	    plus one {"type": "replay", "events": [...]} right after connecting, read from Redis,
+	    so a client that reconnects mid-run catches up on what it missed.
+	Client -> server: {"type": "pause"} / {"type": "resume"} to stop or restart frames.
+	Connect with ?frames=false to get only agent events (e.g. the chat's progress strip).
+	"""
+	await websocket.accept()
+	queue = stream_hub.subscribe(session_id)
+	paused = asyncio.Event()
+
+	async def send_frames() -> None:
+		last_digest = None
+		while True:
+			if not paused.is_set() and session_service.has_session(session_id):
+				try:
+					frame = await session_service.screenshot_active_page(
+						session_id, image_type="jpeg", quality=FRAME_JPEG_QUALITY,
+					)
+				except Exception:
+					frame = None
+				if frame is not None:
+					digest = hashlib.blake2b(frame, digest_size=16).digest()
+					if digest != last_digest:
+						await websocket.send_bytes(frame)
+						last_digest = digest
+			await asyncio.sleep(FRAME_INTERVAL_SECONDS)
+
+	async def send_events() -> None:
+		while True:
+			event = await queue.get()
+			await websocket.send_json(event)
+
+	async def receive_controls() -> None:
+		while True:
+			message = await websocket.receive_json()
+			if message.get("type") == "pause":
+				paused.set()
+			elif message.get("type") == "resume":
+				paused.clear()
+
+	try:
+		await websocket.send_json({
+			"type": "replay",
+			"events": await redis_service.get_agent_events(session_id),
+		})
+		tasks = [
+			asyncio.create_task(send_events()),
+			asyncio.create_task(receive_controls()),
+		]
+		if frames:
+			tasks.append(asyncio.create_task(send_frames()))
+		# Whichever loop ends first (usually the client disconnecting) tears down the rest.
+		done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+		for task in pending:
+			task.cancel()
+		await asyncio.gather(*pending, return_exceptions=True)
+		for task in done:
+			exc = task.exception()
+			if exc and not isinstance(exc, WebSocketDisconnect):
+				print(f"Sandbox socket closed with error: {exc!r}")
+	except WebSocketDisconnect:
+		pass
+	finally:
+		stream_hub.unsubscribe(session_id, queue)
 
 
 @sandbox_router.post("/open")

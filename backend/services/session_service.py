@@ -176,7 +176,9 @@ class SessionService:
 			return None
 		return self._pages.get(session_id, {}).get(active_id)
 
-	async def screenshot_active_page(self, session_id: UUID4) -> bytes:
+	async def screenshot_active_page(
+		self, session_id: UUID4, image_type: str = "png", quality: int | None = None,
+	) -> bytes:
 		active_id = self._active_page_id.get(session_id)
 		if active_id is None:
 			raise KeyError(f"No active page for session {session_id}")
@@ -184,6 +186,8 @@ class SessionService:
 		page = pages_map.get(active_id)
 		if page is None:
 			raise KeyError(f"Active page missing for session {session_id}")
+		if image_type == "jpeg":
+			return await page.screenshot(type="jpeg", quality=quality or 60, full_page=False)
 		return await page.screenshot(type="png", full_page=False)
 
 	async def create_session_view(self, session_id: UUID4, page_index: int | None = None) -> dict:
