@@ -3,7 +3,8 @@ from enum import Enum
 from typing import List, Union, Optional, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, UUID4, Field
+from pydantic import BaseModel, UUID4, Field, model_serializer
+from pydantic_core import to_jsonable_python
 
 
 # user inputs text query in the app
@@ -140,6 +141,14 @@ class UIBase(BaseModel):
         default_factory=datetime.now,
         description="Timestamp indicating when the UI object was created."
     )
+
+    # browser-use's structured `done` action calls json.dumps(model.model_dump()),
+    # which crashes on UUID/datetime values. Returning JSON-safe values in python
+    # mode lets the agent actually finish instead of retrying `done` until max_steps.
+    @model_serializer(mode="wrap")
+    def _json_safe(self, handler, info):
+        data = handler(self)
+        return to_jsonable_python(data) if info.mode == "python" else data
 
 
 class FormOption(BaseModel):
@@ -442,7 +451,7 @@ class GetChatDetailsResponse(BaseModel):
         default_factory=list,
         description="Visited or associated page URLs for the session."
     )
-    chat_session_states: List[ChatSessionState] = Field(
+    chat_session_states: List[UIResponse] = Field(
         description="Detailed state for each chat session."
     )
 
@@ -457,6 +466,11 @@ class ChatResponse(BaseModel):
     response_type: ChatResponseType = Field(
         description="Top-level response category returned to the frontend."
     )
-    response: Union[UIBase, AppIntent] = Field(
+    # List the concrete UI types: with plain UIBase, Pydantic serializes only the
+    # base fields and the frontend never sees the form/markdown content.
+    response: Union[
+        FormResponse, MarkdownResponse, ListResponse,
+        ConversationResponse, ConfirmationResponse, AppIntent,
+    ] = Field(
         description="Payload associated with the response type."
     )

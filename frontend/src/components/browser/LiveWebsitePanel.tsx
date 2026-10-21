@@ -22,6 +22,18 @@ export function LiveWebsitePanel() {
     activeSessionId,
   } = useSession()
 
+  // Hooks must run on every render, so the stream is set up before the early
+  // return below; it only connects once the preview is showing.
+  const streamBase =
+    sandbox.streamUrl ??
+    (activeSessionId ? sandboxStreamUrl(activeSessionId) : undefined)
+  const { blobUrl, streamError, loading, transport, agentLog } = useSandboxStream(
+    sandbox.showPreview ? activeSessionId ?? undefined : undefined,
+    streamBase,
+    sandbox.paused,
+  )
+  const logItems = agentLog.length > 0 ? agentLog : actionLog
+
   if (!sandbox.showPreview) {
     return (
       <aside className={styles.column} aria-label="Live website preview">
@@ -43,12 +55,6 @@ export function LiveWebsitePanel() {
     pages.find((p) => p.isActive) ??
     pages.find((p) => p.id === sandbox.activePageId)
   const previewUrl = activePage?.url ?? sandbox.url
-
-  const streamBase =
-    sandbox.streamUrl ??
-    (activeSessionId ? sandboxStreamUrl(activeSessionId) : undefined)
-
-  const { blobUrl, streamError, loading } = useSandboxStream(streamBase, sandbox.paused)
 
   return (
     <aside className={styles.column} aria-label="Live website preview">
@@ -83,6 +89,11 @@ export function LiveWebsitePanel() {
           <header className={styles.header}>
             <div className={styles.headerText}>
               <h2>{sandbox.contextLabel ?? 'Form preview'}</h2>
+              {transport === 'websocket' && (
+                <span className={`${styles.liveBadge} optional-chrome`} aria-label="Live connection">
+                  Live
+                </span>
+              )}
               {previewUrl && (
                 <p className={`${styles.url} optional-chrome`} title={previewUrl}>
                   {previewUrl}
@@ -130,9 +141,9 @@ export function LiveWebsitePanel() {
             )}
           </div>
 
-          {actionLog.length > 0 && (
+          {logItems.length > 0 && (
             <div className={`${styles.footer} optional-chrome`}>
-              <ActionLog />
+              <ActionLog items={logItems} />
             </div>
           )}
           {simplifiedUi && (

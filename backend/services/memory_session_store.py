@@ -8,7 +8,11 @@ from uuid import UUID
 
 from pydantic import UUID4
 
-from models.app_models import UIBase, UserState
+from pydantic import TypeAdapter
+
+from models.app_models import UIBase, UIResponse, UserState
+
+_ui_adapter = TypeAdapter(UIResponse)
 
 
 class MemorySessionStore:
@@ -16,6 +20,7 @@ class MemorySessionStore:
 		self._users: dict[str, str] = {}
 		self._user_chats: dict[str, dict[str, str]] = {}
 		self._chat_messages: dict[str, dict[str, str]] = {}
+		self._agent_events: dict[str, list[dict]] = {}
 
 	async def ping(self) -> bool:
 		return True
@@ -61,8 +66,22 @@ class MemorySessionStore:
 		bucket = self._chat_messages.get(str(session_id), {})
 		if not bucket:
 			return None
-		return [UIBase.model_validate_json(val) for val in bucket.values()]
+		return [_ui_adapter.validate_json(val) for val in bucket.values()]
 
 	async def delete_chat_messages(self, session_id: UUID4, message_id: UUID4) -> bool:
 		bucket = self._chat_messages.get(str(session_id), {})
 		return bucket.pop(str(message_id), None) is not None
+
+	async def delete_all_chat_messages(self, session_id: UUID4) -> None:
+		self._chat_messages.pop(str(session_id), None)
+		self._agent_events.pop(str(session_id), None)
+
+	async def append_agent_event(self, session_id: UUID4, event: dict) -> None:
+		from services.redis_service import AGENT_EVENTS_MAX
+
+		events = self._agent_events.setdefault(str(session_id), [])
+		events.append(event)
+		del events[:-AGENT_EVENTS_MAX]
+
+	async def get_agent_events(self, session_id: UUID4) -> list[dict]:
+		return list(self._agent_events.get(str(session_id), []))

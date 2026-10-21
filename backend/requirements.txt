@@ -1,5 +1,8 @@
-fastapi
-uvicorn[standard]
-browser-use
-playwright
-redis
+fastapi==0.156.4
+uvicorn[standard]==0.54.0
+# Pinned: 0.6+ switched to CDP and no longer accepts a Playwright BrowserContext,
+# so the agent would silently launch its own browser instead of the user's session.
+browser-use==0.5.11
+playwright==1.64.0
+redis==8.1.0
+python-dotenv==1.2.2

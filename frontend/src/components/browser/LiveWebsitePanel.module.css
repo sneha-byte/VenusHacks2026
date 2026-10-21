@@ -261,3 +261,17 @@
     min-height: 40vh;
   }
 }
+
+/* Shown while frames arrive over the WebSocket (vs. polling fallback) */
+.liveBadge {
+  display: inline-block;
+  margin-top: 0.15rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--color-blush-rose);
+  color: var(--color-jet-black);
+}

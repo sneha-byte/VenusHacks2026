@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from 'react'
 import { useAccessibility } from '../../context/AccessibilityContext'
 import { useSession } from '../../context/SessionContext'
+import { useSandboxStream } from '../../hooks/useSandboxStream'
 import { useVoiceControl } from '../../hooks/useVoiceControl'
 import { isUciPostCourseFormUrl } from '../../data/uciPostCourseForm'
 import { extractFirstUrl } from '../../utils/url'
@@ -34,6 +35,12 @@ export function ChatPanel() {
   const prevReadAloudRef = useRef(profile.readAloud)
 
   const busy = isAgentBusy
+  // Live agent steps over the WebSocket (events only, no screenshots), so a long
+  // browser run shows progress instead of a frozen "Working…" button.
+  const { agentLog } = useSandboxStream(activeSessionId ?? undefined, undefined, false, {
+    frames: false,
+  })
+  const recentSteps = agentLog.slice(-3)
   const hasSavedSurvey =
     !guidedSurveyActive &&
     !guidedSurveySubmitted &&
@@ -184,6 +191,16 @@ export function ChatPanel() {
         <p className={styles.interim} aria-live="polite">
           Hearing: {transcript}
         </p>
+      )}
+
+      {busy && recentSteps.length > 0 && (
+        <ol className={styles.agentProgress} aria-live="polite" aria-label="What the assistant is doing">
+          {recentSteps.map((step) => (
+            <li key={step.id} className={step.status === 'pending' ? styles.agentStepActive : undefined}>
+              {step.label}
+            </li>
+          ))}
+        </ol>
       )}
 
       <form className={styles.inputRow} onSubmit={onSubmit}>
